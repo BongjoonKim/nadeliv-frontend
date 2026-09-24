@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect } from "react";
 import HeaderLayout from "./HeaderLayout";
 import { Box } from "@chakra-ui/react";
 import HeroSection from "./HeroSection";
+import FooterLayout from "./FooterLayout";
 import { Outlet, useLocation } from "react-router-dom";
 
 
@@ -63,6 +64,8 @@ function MainLayout({ children, showHero = false }: MainLayoutProps) {
       <Box flex={1} minH={0} display="flex" flexDirection="column">
         {children ?? <Outlet/>}
       </Box>
+      {/* 채팅 류(viewport 고정)는 footer 가 내부 스크롤 영역을 잠식하므로 제외 */}
+      {!isViewportLocked && <FooterLayout />}
     </Box>
   );
 }

@@ -20,6 +20,7 @@ const TAB_SUBTITLES: Record<string, string> = {
   users: "가입한 사용자 목록을 조회하고 권한을 관리합니다.",
   folder: "블로그 글이 담기는 폴더 구조를 관리합니다.",
   feature: "홈 화면에 노출할 Featured 콘텐츠를 관리합니다.",
+  inquiries: "contact@nadeliv.com 으로 들어온 문의 메일을 확인합니다.",
 };
 
 function AdminTabLayout(props : AdminMenuTabProps) {
