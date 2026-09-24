@@ -317,9 +317,6 @@ function MainBody(_props: MainBodyProps) {
           </div>
         </section>
 
-        <footer className="home-footer">
-          nadeliv · Discover the Korea beyond Seoul
-        </footer>
       </div>
     </StyledMainBody>
   );
@@ -691,13 +688,6 @@ const StyledMainBody = styled.div`
     border: 0.5px solid ${t.color.border2};
     border-radius: 6px;
     padding: 3px 9px;
-  }
-
-  .home-footer {
-    margin: 64px 0 48px;
-    text-align: center;
-    font-size: 12px;
-    color: ${t.color.textFaint};
   }
 
   /* ---------- Page-load reveal (staggered) ---------- */

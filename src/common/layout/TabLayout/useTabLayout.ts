@@ -32,6 +32,10 @@ function useTabLayout(props : AdminMenuTabProps | UserMenuTabProps) {
     {
       label: "Featured",
       value: "feature",
+    },
+    {
+      label: "Inquiries",
+      value: "inquiries",
     }
   ]);
   
@@ -58,6 +62,9 @@ function useTabLayout(props : AdminMenuTabProps | UserMenuTabProps) {
         break;
       case "feature":
         navigate("/admin/feature");
+        break;
+      case "inquiries":
+        navigate("/admin/inquiries");
         break;
       default:
         break;

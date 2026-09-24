@@ -85,6 +85,19 @@ export default function useLoginPage() {
       }
     } catch(e: any) {
       console.error("Login failed:", e);
+
+      // 연속 실패로 아이디가 임시 잠긴 경우 (백엔드 429 + retryAfterSeconds)
+      if (e.response?.status === 429) {
+        const retryAfterSeconds: number | undefined = e.response?.data?.retryAfterSeconds;
+        const minutes = retryAfterSeconds ? Math.max(1, Math.ceil(retryAfterSeconds / 60)) : 10;
+        setErrMsg({
+          status: "error",
+          msg: `Too many failed login attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+          isShow: true
+        });
+        return;
+      }
+
       setErrMsg({
         status: "error",
         msg: e.response?.data?.message || "Login failed. Please check your ID and password.",
