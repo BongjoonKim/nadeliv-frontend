@@ -42,6 +42,7 @@ import TravelAlbum from "./TravelAlbum";
 import TravelMembers from "./TravelMembers";
 import TravelSettings from "./TravelSettings";
 import DashboardCustomize from "./DashboardCustomize";
+import { getTravelProjectColor } from "../common/TravelProjectThumb";
 
 export interface TravelDashboardProps {}
 
@@ -547,7 +548,10 @@ function TravelDashboard(props: TravelDashboardProps) {
             className="dash-hero-img"
           />
         ) : (
-          <div className="dash-hero-placeholder">
+          <div
+            className="dash-hero-placeholder"
+            style={{ background: getTravelProjectColor(travel.id) }}
+          >
             <Plane size={48} />
           </div>
         )}
@@ -609,6 +613,7 @@ function TravelDashboard(props: TravelDashboardProps) {
         currentDescription={travel.description}
         currentTags={travel.tags}
         currentVisibility={travel.visibility}
+        currentCoverImageUrl={travel.coverImageUrl}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onDeleted={() => navigate("/travel/home")}
@@ -744,8 +749,7 @@ const StyledTravelDashboard = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #1a2021 0%, #2f5743 100%);
-    color: rgba(127, 184, 154, 0.7);
+    color: rgba(255, 255, 255, 0.55);
   }
 
   .dash-hero-overlay {
