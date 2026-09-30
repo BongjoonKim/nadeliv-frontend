@@ -15,6 +15,11 @@ interface PlaceSearchModalProps {
   /** 이미 추가된 장소 ID (뱃지 표시용) */
   addedIds: Set<string>;
   onSelect: (place: PlaceItem) => void;
+  /** 헤더 문구 (기본: 다녀온 장소 추가) */
+  eyebrow?: string;
+  title?: string;
+  /** 결과마다 "○○ on the map" 지역 뱃지 (Korea Map 전용 안내) */
+  showRegionHint?: boolean;
 }
 
 /**
@@ -27,6 +32,9 @@ const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
   onClose,
   addedIds,
   onSelect,
+  eyebrow = "Visited Places",
+  title = "Add places you visited",
+  showRegionHint = true,
 }) => {
   const [keyword, setKeyword] = useState("");
   const search = usePlaceQueries();
@@ -52,8 +60,8 @@ const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
       <Panel onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <PanelHeader>
           <div>
-            <PanelEyebrow>Visited Places</PanelEyebrow>
-            <PanelTitle>Add places you visited</PanelTitle>
+            <PanelEyebrow>{eyebrow}</PanelEyebrow>
+            <PanelTitle>{title}</PanelTitle>
           </div>
           <CloseButton onClick={close} aria-label="Close">
             <X size={16} />
@@ -88,7 +96,7 @@ const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
           <ResultList>
             {results.map((p) => {
               const added = !!p.id && addedIds.has(p.id);
-              const region = locateRegion(p.lat, p.lng);
+              const region = showRegionHint ? locateRegion(p.lat, p.lng) : null;
               return (
                 <ResultRow key={p.id}>
                   <ResultInfo>

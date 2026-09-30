@@ -10,6 +10,7 @@ import {
   TravelPlacesRequest,
   TravelRole,
   TravelMedia,
+  TravelScheduleRequest,
 } from "../types/travel/travelTypes";
 import {
   createTravel,
@@ -22,6 +23,9 @@ import {
   addTravelMember,
   removeTravelMember,
   updateMemberRole,
+  addTravelSchedule,
+  updateTravelSchedule,
+  deleteTravelSchedule,
   uploadTravelMedia,
   getTravelMedia,
   deleteTravelMedia,
@@ -240,6 +244,83 @@ export const useUpdateMemberRole = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["travel", data.id] });
+    },
+  });
+};
+
+/* ── 일정(Schedules) ──
+ * 응답이 갱신된 여행 전체이므로 refetch 대신 캐시에 바로 반영한다.
+ * (연속 저장 시 다음 요청이 방금 생성된 일정 id 를 즉시 읽을 수 있어야 함) */
+
+// 일정 추가
+export const useAddTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TravelResponse,
+    Error,
+    { travelId: string; reqBody: TravelScheduleRequest }
+  >({
+    mutationFn: async ({ travelId, reqBody }) => {
+      const response = await authEP({
+        func: addTravelSchedule,
+        params: { travelId },
+        reqBody,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["travel", data.id], data);
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
+    },
+  });
+};
+
+// 일정 수정
+export const useUpdateTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TravelResponse,
+    Error,
+    { travelId: string; scheduleId: string; reqBody: TravelScheduleRequest }
+  >({
+    mutationFn: async ({ travelId, scheduleId, reqBody }) => {
+      const response = await authEP({
+        func: updateTravelSchedule,
+        params: { travelId, scheduleId },
+        reqBody,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["travel", data.id], data);
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
+    },
+  });
+};
+
+// 일정 삭제 (204 — 응답 본문 없음)
+export const useDeleteTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { travelId: string; scheduleId: string }>({
+    mutationFn: async ({ travelId, scheduleId }) => {
+      await authEP({
+        func: deleteTravelSchedule,
+        params: { travelId, scheduleId },
+      });
+    },
+    onSuccess: (_, { travelId, scheduleId }) => {
+      queryClient.setQueryData<TravelResponse>(["travel", travelId], (old) =>
+        old
+          ? { ...old, schedules: old.schedules?.filter((s) => s.id !== scheduleId) }
+          : old
+      );
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
     },
   });
 };

@@ -36,6 +36,14 @@ export const homeTokens = {
     "linear-gradient(135deg, #c29d5e 0%, #7a5c2c 100%)", // ochre
     "linear-gradient(135deg, #93965c 0%, #575a2f 100%)", // olive
   ],
+  // 여행 일정(Schedules) 번호 핀 — 장소 카테고리별 색 (Triple 식). projectPalette 와 같은 톤.
+  scheduleCategory: {
+    stay: "#5f9097", // 숙박 — teal
+    food: "#b07a86", // 음식점·카페 — rose
+    transport: "#c29d5e", // 역·주차장 등 — ochre
+    sight: "#8f78a3", // 관광명소·문화시설 — plum
+    other: "#6f8a72", // 기타·직접 입력 — sage
+  },
   font: {
     serif: "'Noto Serif KR', Georgia, serif",
     sans: "'Noto Sans KR', system-ui, sans-serif",

@@ -4,14 +4,25 @@ export type TravelStatus = "PLANNING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED
 export type TravelRole = "ADMIN" | "USER" | "VIEWER";
 
 // Embedded Models
+// 하루 코스의 한 항목 (Triple 식). 좌표가 없으면 직접 입력한 일정(메모)
 export interface SchedulePlace {
+  /** 항목 식별자 (프론트 생성 — 정렬·이동 시 동일 항목 추적) */
+  id?: string;
+  /** 검색 제공자(카카오) 장소 ID */
+  placeId?: string;
   name?: string;
+  nameEn?: string;
+  category?: string;
+  categoryEn?: string;
   address?: string;
   lat?: number;
   lng?: number;
+  /** 방문 예정 시각 "HH:mm" */
+  time?: string;
   memo?: string;
 }
 
+// 여행 일정 — dayNumber 당 하나 (places 순서 = 그날 방문 순서)
 export interface TravelSchedule {
   id?: string;
   dayNumber?: number;
