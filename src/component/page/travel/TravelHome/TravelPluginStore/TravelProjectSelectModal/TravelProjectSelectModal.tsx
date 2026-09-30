@@ -3,6 +3,7 @@ import styled, { keyframes } from "styled-components";
 import { X, Search, MapPin, Calendar, Users } from "lucide-react";
 import { TravelResponse } from "../../../../../../types/travel/travelTypes";
 import { TravelPluginDefinition } from "../../../../../../types/travel/travelPluginTypes";
+import TravelProjectThumb from "../../../common/TravelProjectThumb";
 
 interface TravelProjectSelectModalProps {
   isOpen: boolean;
@@ -102,11 +103,11 @@ const TravelProjectSelectModal: React.FC<TravelProjectSelectModalProps> = ({
                 onClick={() => onSelectProject(project)}
               >
                 <ProjectAvatar>
-                  {project.coverImageUrl ? (
-                    <img src={project.coverImageUrl} alt={project.title} />
-                  ) : (
-                    <AvatarPlaceholder>{project.title.charAt(0)}</AvatarPlaceholder>
-                  )}
+                  <TravelProjectThumb
+                    seed={project.id}
+                    src={project.coverImageUrl}
+                    alt={project.title}
+                  />
                 </ProjectAvatar>
 
                 <ProjectInfo>
@@ -358,25 +359,6 @@ const ProjectAvatar = styled.div`
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-`;
-
-const AvatarPlaceholder = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
-  color: white;
-  font-size: 18px;
-  font-weight: 700;
-  font-family: "Playfair Display", serif;
 `;
 
 const ProjectInfo = styled.div`

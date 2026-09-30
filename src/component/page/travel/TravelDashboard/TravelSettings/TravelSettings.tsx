@@ -12,6 +12,7 @@ import {
   EyeOff,
   Globe,
   Lock,
+  Camera,
 } from "lucide-react";
 import { TravelVisibility } from "../../../../../types/travel/travelTypes";
 import {
@@ -20,6 +21,7 @@ import {
 } from "../../../../../hooks/useTravelQueries";
 import { homeTokens } from "../../../MainPage/MainBody/homeTokens";
 import { profileTokens } from "../../../profile/profileUi";
+import CoverImageField from "./CoverImageField";
 
 export interface TravelSettingsProps {
   travelId: string;
@@ -27,6 +29,7 @@ export interface TravelSettingsProps {
   currentDescription?: string;
   currentTags?: string[];
   currentVisibility: TravelVisibility;
+  currentCoverImageUrl?: string;
   isOpen: boolean;
   onClose: () => void;
   onDeleted: () => void;
@@ -38,6 +41,7 @@ function TravelSettings({
   currentDescription,
   currentTags,
   currentVisibility,
+  currentCoverImageUrl,
   isOpen,
   onClose,
   onDeleted,
@@ -234,6 +238,19 @@ function TravelSettings({
         </div>
 
         <div className="settings-body">
+          {/* 커버 사진 — 홈 썸네일·대시보드 배너 */}
+          <div className="settings-section">
+            <div className="section-label">
+              <Camera size={15} />
+              Cover Photo
+            </div>
+            <CoverImageField
+              travelId={travelId}
+              title={currentTitle}
+              currentCoverImageUrl={currentCoverImageUrl}
+            />
+          </div>
+
           {/* 프로젝트 이름 */}
           <div className="settings-section">
             <div className="section-label">

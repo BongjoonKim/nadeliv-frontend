@@ -4,6 +4,7 @@ import styled, {keyframes} from "styled-components";
 import {Plus} from "lucide-react";
 import {useGetMyTravels} from "../../../../../hooks/useTravelQueries";
 import {TravelResponse} from "../../../../../types/travel/travelTypes";
+import TravelProjectThumb from "../../common/TravelProjectThumb";
 
 export interface TravelRecentProjectsProps {}
 
@@ -49,17 +50,11 @@ function TravelRecentProjects(_props: TravelRecentProjectsProps) {
               <div
                 className={`project-circle ${hoveredId === project.id ? "hovered" : ""}`}
               >
-                {project.coverImageUrl ? (
-                  <img
-                    src={project.coverImageUrl}
-                    alt={project.title}
-                    className="project-circle-img"
-                  />
-                ) : (
-                  <div className="project-circle-placeholder">
-                    {project.title.charAt(0)}
-                  </div>
-                )}
+                <TravelProjectThumb
+                  seed={project.id}
+                  src={project.coverImageUrl}
+                  alt={project.title}
+                />
               </div>
               <span className="project-circle-title">
                 {project.destination || project.title}
@@ -165,25 +160,6 @@ const StyledTravelRecentProjects = styled.div`
       animation: ${shimmer} 1.5s infinite;
       border-color: transparent;
     }
-  }
-
-  .project-circle-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .project-circle-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #1f2728;
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 24px;
-    font-weight: 700;
-    font-family: Georgia, "Times New Roman", serif;
   }
 
   .project-circle-title {
