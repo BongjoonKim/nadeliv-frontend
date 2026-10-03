@@ -19,6 +19,8 @@ export interface MediaLightboxProps {
   travelId: string;
   onNavigate: (direction: "prev" | "next") => void;
   onDelete: (mediaId: string) => void;
+  /** 삭제 버튼 노출 여부 (VIEWER 등 편집 불가 멤버는 숨김). 기본 true */
+  canDelete?: boolean;
 }
 
 function MediaLightbox({
@@ -29,6 +31,7 @@ function MediaLightbox({
   travelId,
   onNavigate,
   onDelete,
+  canDelete = true,
 }: MediaLightboxProps) {
   const { downloadSingle } = useDownloadTravelMedia();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -105,9 +108,11 @@ function MediaLightbox({
             >
               <Download size={18} />
             </button>
-            <button className="lightbox-btn delete-btn" onClick={handleDelete}>
-              <Trash2 size={18} />
-            </button>
+            {canDelete && (
+              <button className="lightbox-btn delete-btn" onClick={handleDelete}>
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -128,6 +133,9 @@ function MediaLightbox({
                 key={media.id}
                 controls
                 autoPlay={false}
+                // 원본 전체를 미리 받지 않도록 메타데이터만 로드, 첫 화면은 썸네일로
+                preload="metadata"
+                poster={media.thumbnailUrl || undefined}
                 className="lightbox-video"
               >
                 <source src={media.fileUrl} type={media.mimeType} />

@@ -30,7 +30,7 @@ import {
 } from "../../../../constants/travelDashboardItems";
 import {
   useGetTravel,
-  useGetTravelMedia,
+  useGetTravelMediaCount,
 } from "../../../../hooks/useTravelQueries";
 import {
   TravelDashboardItem,
@@ -82,8 +82,8 @@ function TravelDashboard(props: TravelDashboardProps) {
   const navigate = useNavigate();
   const { data: travel, isLoading, error } = useGetTravel(travelId);
   const { data: currentUser } = useCurrentUser();
-  // Album 을 박스로 표시할 때 사진 개수용 (TravelAlbum 과 동일 쿼리키 → 캐시 공유)
-  const { data: travelMedia } = useGetTravelMedia(travelId);
+  // Album 을 박스로 표시할 때 사진 개수용 (count 전용 엔드포인트 — 목록 50개 상한과 무관)
+  const { data: travelMediaCount } = useGetTravelMediaCount(travelId);
   const [loaded, setLoaded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -259,9 +259,13 @@ function TravelDashboard(props: TravelDashboardProps) {
       // 섹션을 박스로 표시할 때의 축약형
       case "album":
         return (
-          <div key={item.key} className="stat-card">
+          <div
+            key={item.key}
+            className="stat-card clickable"
+            onClick={() => navigate(`/travel/album/${travel.id}`)}
+          >
             <ImageIcon size={18} className="stat-icon" />
-            <span className="stat-value">{travelMedia?.length ?? 0}</span>
+            <span className="stat-value">{travelMediaCount ?? 0}</span>
             <span className="stat-label">Album</span>
           </div>
         );
@@ -368,7 +372,7 @@ function TravelDashboard(props: TravelDashboardProps) {
   const renderRowSection = (item: TravelDashboardItem) => {
     switch (item.key) {
       case "album":
-        return <TravelAlbum key={item.key} travelId={travel.id} />;
+        return <TravelAlbum key={item.key} travelId={travel.id} canEdit={canEdit} />;
       case "dates":
         return travel.startDate || travel.endDate ? (
           <div key={item.key} className="dash-section date-section">

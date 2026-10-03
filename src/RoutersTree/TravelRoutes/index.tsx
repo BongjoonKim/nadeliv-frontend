@@ -14,6 +14,8 @@ const TravelMap = React.lazy(() => import("../../component/page/travel/TravelMap
 const TravelCourse = React.lazy(() => import("../../component/page/travel/TravelCourse"));
 // 유튜브 수집·요약 플러그인 — lazy 로드
 const TravelDiscovery = React.lazy(() => import("../../component/page/travel/TravelDiscovery"));
+// 프로젝트 앨범 전용 화면 — lazy 로드
+const TravelAlbumPage = React.lazy(() => import("../../component/page/travel/TravelAlbumPage"));
 
 export default function TravelRoutes() {
   return (
@@ -39,6 +41,13 @@ export default function TravelRoutes() {
           <Route path="/dashboard/:travelId" element={
             <ProtectedRoute>
               <TravelDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/album/:travelId" element={
+            <ProtectedRoute>
+              <Suspense fallback={null}>
+                <TravelAlbumPage />
+              </Suspense>
             </ProtectedRoute>
           } />
           <Route path="/chat/:travelId" element={

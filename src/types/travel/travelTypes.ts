@@ -170,6 +170,17 @@ export interface TravelScheduleRequest {
 }
 
 // Media
+export type TravelMediaSort =
+  | "created_desc"
+  | "created_asc"
+  | "taken_desc"
+  | "taken_asc";
+export type TravelMediaType = "all" | "image" | "video";
+
+export interface TravelMediaCountResponse {
+  count: number;
+}
+
 export interface TravelMedia {
   id: string;
   travelId: string;
