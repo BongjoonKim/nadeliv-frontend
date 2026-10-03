@@ -1,117 +1,115 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Image as ImageIcon,
   Plus,
-  CheckSquare,
   CloudUpload,
-  Download,
-  Trash2,
-  X,
+  ArrowRight,
 } from "lucide-react";
 import {
   useGetTravelMedia,
+  useGetTravelMediaCount,
   useDeleteTravelMedia,
-  useDownloadTravelMedia,
 } from "../../../../../hooks/useTravelQueries";
 import { TravelMedia } from "../../../../../types/travel/travelTypes";
-import MediaGrid from "./MediaGrid";
-import MediaUploadZone from "./MediaUploadZone";
-import MediaLightbox from "./MediaLightbox";
+import MediaGrid from "../../common/media/MediaGrid";
+import MediaUploadZone from "../../common/media/MediaUploadZone";
+import MediaLightbox from "../../common/media/MediaLightbox";
+import { homeTokens } from "../../../MainPage/MainBody/homeTokens";
+
+const t = homeTokens;
+
+// 대시보드 미리보기 개수. 전체 보기·선택·일괄 관리는 앨범 전용 화면(/travel/album/:id)에서
+const PREVIEW_COUNT = 12;
 
 export interface TravelAlbumProps {
   travelId: string;
+  /** 업로드·삭제 가능 여부 (ADMIN/USER). VIEWER 는 false */
+  canEdit?: boolean;
 }
 
-function TravelAlbum({ travelId }: TravelAlbumProps) {
-  const { data: media = [], isLoading } = useGetTravelMedia(travelId);
+/**
+ * 대시보드 Album 섹션 — 최근 업로드 미리보기 스트립.
+ * 드래그 드롭·빠른 업로드는 여기서도 되지만, 목록 전체는 앨범 화면으로 보낸다.
+ */
+function TravelAlbum({ travelId, canEdit = true }: TravelAlbumProps) {
+  const navigate = useNavigate();
+  const { data: media = [], isLoading } = useGetTravelMedia(travelId, 0, PREVIEW_COUNT);
+  const { data: totalCount = 0 } = useGetTravelMediaCount(travelId);
   const deleteMutation = useDeleteTravelMedia();
-  const { downloadSingle, downloadBatch } = useDownloadTravelMedia();
 
-  const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [lightboxMedia, setLightboxMedia] = useState<TravelMedia | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[] | null>(null);
+  const dragDepth = useRef(0);
+
+  const albumPath = `/travel/album/${travelId}`;
+  const remaining = Math.max(0, totalCount - media.length);
 
   // 섹션 전체 드래그 드롭 — 업로드 존이 닫혀 있어도 파일을 끌어오면 바로 업로드
-  const handleSectionDragEnter = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
-    e.preventDefault();
-    setIsDragActive(true);
-  }, []);
+  const hasFiles = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types).includes("Files");
 
-  const handleSectionDragOver = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
-    e.preventDefault();
-  }, []);
+  const handleSectionDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (!canEdit || !hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current += 1;
+      setIsDragActive(true);
+    },
+    [canEdit]
+  );
 
-  const handleSectionDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    // 섹션 내부 요소 간 이동은 무시하고, 섹션 밖으로 나갈 때만 해제
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-    setIsDragActive(false);
-  }, []);
+  const handleSectionDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!canEdit || !hasFiles(e)) return;
+      e.preventDefault();
+    },
+    [canEdit]
+  );
 
-  const handleSectionDrop = useCallback((e: React.DragEvent) => {
-    if (!Array.from(e.dataTransfer.types).includes("Files")) return;
-    e.preventDefault();
-    setIsDragActive(false);
-    const files = Array.from(e.dataTransfer.files).filter(
-      (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
-    );
-    if (files.length === 0) return;
-    setDroppedFiles(files);
-    setIsUploadOpen(true);
-  }, []);
+  const handleSectionDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      if (!canEdit || !hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current = Math.max(0, dragDepth.current - 1);
+      if (dragDepth.current === 0) setIsDragActive(false);
+    },
+    [canEdit]
+  );
+
+  const handleSectionDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!canEdit || !hasFiles(e)) return;
+      e.preventDefault();
+      dragDepth.current = 0;
+      setIsDragActive(false);
+      const files = Array.from(e.dataTransfer.files).filter(
+        (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+      );
+      if (files.length === 0) return;
+      setDroppedFiles(files);
+      setIsUploadOpen(true);
+    },
+    [canEdit]
+  );
 
   const handleDroppedFilesConsumed = useCallback(() => {
     setDroppedFiles(null);
   }, []);
 
-  // Selection handlers
-  const handleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleSelectAll = useCallback(() => {
-    if (selectedIds.size === media.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(media.map((m) => m.id)));
-    }
-  }, [selectedIds.size, media]);
-
-  const toggleSelectMode = useCallback(() => {
-    setIsSelectMode((prev) => {
-      if (prev) setSelectedIds(new Set());
-      return !prev;
-    });
-  }, []);
-
-  // Media click
   const handleMediaClick = useCallback((item: TravelMedia) => {
     setLightboxMedia(item);
   }, []);
 
-  // Lightbox navigation
   const handleLightboxNav = useCallback(
     (direction: "prev" | "next") => {
       if (!lightboxMedia) return;
       const currentIndex = media.findIndex((m) => m.id === lightboxMedia.id);
-      const nextIndex =
-        direction === "prev" ? currentIndex - 1 : currentIndex + 1;
+      const nextIndex = direction === "prev" ? currentIndex - 1 : currentIndex + 1;
       if (nextIndex >= 0 && nextIndex < media.length) {
         setLightboxMedia(media[nextIndex]);
       }
@@ -119,59 +117,17 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
     [lightboxMedia, media]
   );
 
-  // Delete
   const handleDelete = useCallback(
     async (mediaId: string) => {
       try {
         await deleteMutation.mutateAsync({ travelId, mediaId });
-        if (lightboxMedia?.id === mediaId) {
-          setLightboxMedia(null);
-        }
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(mediaId);
-          return next;
-        });
+        if (lightboxMedia?.id === mediaId) setLightboxMedia(null);
       } catch (err) {
         console.error("Delete failed:", err);
       }
     },
     [travelId, deleteMutation, lightboxMedia]
   );
-
-  // Batch download
-  const handleBatchDownload = useCallback(async () => {
-    if (selectedIds.size === 0) return;
-    setIsDownloading(true);
-    try {
-      const ids = Array.from(selectedIds);
-      if (ids.length === 1) {
-        const item = media.find((m) => m.id === ids[0]);
-        if (item) {
-          await downloadSingle(travelId, item.id, item.originalFileName);
-        }
-      } else {
-        await downloadBatch(travelId, ids);
-      }
-    } catch (err) {
-      console.error("Download failed:", err);
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [selectedIds, media, travelId, downloadSingle, downloadBatch]);
-
-  // Batch delete
-  const handleBatchDelete = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    for (const id of ids) {
-      try {
-        await deleteMutation.mutateAsync({ travelId, mediaId: id });
-      } catch (err) {
-        console.error(`Delete failed for ${id}:`, err);
-      }
-    }
-    setSelectedIds(new Set());
-  }, [selectedIds, travelId, deleteMutation]);
 
   return (
     <StyledTravelAlbum
@@ -181,7 +137,6 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
       onDrop={handleSectionDrop}
     >
       <div className="dash-section">
-        {/* Drag & drop overlay */}
         {isDragActive && (
           <div className="drop-overlay">
             <div className="drop-overlay-inner">
@@ -191,64 +146,31 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
           </div>
         )}
 
-        {/* Header */}
         <div className="section-header">
           <h3 className="section-title">
             <ImageIcon size={16} />
             Album
-            {media.length > 0 && (
-              <span className="media-count">{media.length}</span>
-            )}
+            {totalCount > 0 && <span className="media-count">{totalCount}</span>}
           </h3>
           <div className="album-actions">
-            {isSelectMode && (
-              <>
-                <button
-                  className="action-btn select-all-btn"
-                  onClick={handleSelectAll}
-                >
-                  {selectedIds.size === media.length ? "Deselect" : "All"}
-                </button>
-                {selectedIds.size > 0 && (
-                  <>
-                    <button
-                      className="action-btn download-btn"
-                      onClick={handleBatchDownload}
-                      disabled={isDownloading}
-                    >
-                      <Download size={15} />
-                      <span>{selectedIds.size}</span>
-                    </button>
-                    <button
-                      className="action-btn delete-action-btn"
-                      onClick={handleBatchDelete}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </>
-                )}
-                <button className="action-btn close-select" onClick={toggleSelectMode}>
-                  <X size={15} />
-                </button>
-              </>
-            )}
-            {!isSelectMode && media.length > 0 && (
-              <button className="action-btn" onClick={toggleSelectMode}>
-                <CheckSquare size={15} />
+            <button className="action-btn view-all-btn" onClick={() => navigate(albumPath)}>
+              <span>View all</span>
+              <ArrowRight size={14} />
+            </button>
+            {canEdit && (
+              <button
+                className="section-action"
+                title="Upload"
+                onClick={() => setIsUploadOpen((prev) => !prev)}
+              >
+                <Plus size={16} />
               </button>
             )}
-            <button
-              className="section-action"
-              onClick={() => setIsUploadOpen((prev) => !prev)}
-            >
-              <Plus size={16} />
-            </button>
           </div>
         </div>
 
-        {/* Upload Zone */}
         <AnimatePresence>
-          {isUploadOpen && (
+          {isUploadOpen && canEdit && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
@@ -266,7 +188,6 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
           )}
         </AnimatePresence>
 
-        {/* Content */}
         {isLoading ? (
           <div className="album-loading">
             <div className="loading-spinner" />
@@ -276,20 +197,32 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
           <div className="empty-album">
             <ImageIcon size={32} />
             <p>No photos yet</p>
-            <span>Drag &amp; drop photos here, or tap + to upload</span>
+            <span>
+              {canEdit
+                ? "Drag & drop photos here, or tap + to upload"
+                : "Nothing has been uploaded to this project yet"}
+            </span>
           </div>
         ) : (
           <MediaGrid
             media={media}
-            isSelectMode={isSelectMode}
-            selectedIds={selectedIds}
-            onSelect={handleSelect}
+            isSelectMode={false}
+            selectedIds={EMPTY_SET}
+            onSelect={() => {}}
             onMediaClick={handleMediaClick}
+            cellSize="m"
+            trailing={
+              remaining > 0 ? (
+                <button className="more-cell" onClick={() => navigate(albumPath)}>
+                  <span className="more-count">+{remaining}</span>
+                  <span className="more-label">more</span>
+                </button>
+              ) : undefined
+            }
           />
         )}
       </div>
 
-      {/* Lightbox */}
       <MediaLightbox
         isOpen={!!lightboxMedia}
         onClose={() => setLightboxMedia(null)}
@@ -298,12 +231,15 @@ function TravelAlbum({ travelId }: TravelAlbumProps) {
         travelId={travelId}
         onNavigate={handleLightboxNav}
         onDelete={handleDelete}
+        canDelete={canEdit}
       />
     </StyledTravelAlbum>
   );
 }
 
 export default TravelAlbum;
+
+const EMPTY_SET = new Set<string>();
 
 const spin = keyframes`
   to { transform: rotate(360deg); }
@@ -313,7 +249,7 @@ const StyledTravelAlbum = styled.div`
   .dash-section {
     position: relative;
     padding: 1.25rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid ${t.color.border};
   }
 
   .drop-overlay {
@@ -323,7 +259,7 @@ const StyledTravelAlbum = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px dashed #7fb89a;
+    border: 2px dashed ${t.color.accent};
     border-radius: 16px;
     background: rgba(18, 24, 22, 0.9);
     backdrop-filter: blur(2px);
@@ -335,12 +271,12 @@ const StyledTravelAlbum = styled.div`
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: #7fb89a;
+    color: ${t.color.accent};
 
     p {
       font-size: 14px;
       font-weight: 600;
-      color: #f1f3f2;
+      color: ${t.color.text};
     }
   }
 
@@ -357,14 +293,14 @@ const StyledTravelAlbum = styled.div`
     gap: 8px;
     font-size: 16px;
     font-weight: 600;
-    color: #f1f3f2;
+    color: ${t.color.text};
   }
 
   .media-count {
     font-size: 12px;
     font-weight: 600;
-    color: #7fb89a;
-    background: rgba(127, 184, 154, 0.12);
+    color: ${t.color.accent};
+    background: rgba(143, 191, 148, 0.12);
     padding: 1px 8px;
     border-radius: 10px;
   }
@@ -380,72 +316,65 @@ const StyledTravelAlbum = styled.div`
     align-items: center;
     gap: 4px;
     padding: 6px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid ${t.color.border};
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.05);
-    color: #7fb89a;
+    color: ${t.color.accent};
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
 
     &:hover {
-      background: rgba(127, 184, 154, 0.12);
+      background: rgba(143, 191, 148, 0.12);
     }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-  }
-
-  .download-btn {
-    background: rgba(127, 184, 154, 0.1);
-    border-color: rgba(127, 184, 154, 0.3);
-    color: #9fcbae;
-
-    &:hover {
-      background: rgba(127, 184, 154, 0.18);
-    }
-  }
-
-  .delete-action-btn {
-    border-color: rgba(239, 68, 68, 0.2);
-    color: #ef4444;
-
-    &:hover {
-      background: rgba(239, 68, 68, 0.08);
-    }
-  }
-
-  .close-select {
-    border: none;
-    background: transparent;
-    color: #94a3a0;
-
-    &:hover {
-      color: #7fb89a;
-    }
-  }
-
-  .select-all-btn {
-    font-size: 11px;
-    padding: 4px 8px;
   }
 
   .section-action {
     padding: 6px;
-    border: 1.5px dashed rgba(127, 184, 154, 0.35);
+    border: 1.5px dashed rgba(143, 191, 148, 0.35);
     border-radius: 10px;
     background: transparent;
-    color: #94a3a0;
+    color: ${t.color.textMuted};
     cursor: pointer;
     transition: all 0.25s ease;
 
     &:hover {
-      border-color: rgba(127, 184, 154, 0.5);
-      color: #7fb89a;
-      background: rgba(127, 184, 154, 0.12);
+      border-color: rgba(143, 191, 148, 0.5);
+      color: ${t.color.accent};
+      background: rgba(143, 191, 148, 0.12);
+    }
+  }
+
+  /* 그리드 마지막 "+N more" 셀 */
+  .more-cell {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    border: 1.5px dashed rgba(143, 191, 148, 0.35);
+    background: ${t.color.surface};
+    color: ${t.color.textSoft};
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    .more-count {
+      font-size: 18px;
+      font-weight: 600;
+      color: ${t.color.accent};
+    }
+
+    .more-label {
+      font-size: 12px;
+      color: ${t.color.textMuted};
+    }
+
+    &:hover {
+      border-color: rgba(143, 191, 148, 0.6);
+      background: rgba(143, 191, 148, 0.08);
     }
   }
 
@@ -456,15 +385,15 @@ const StyledTravelAlbum = styled.div`
     justify-content: center;
     gap: 12px;
     padding: 2rem 1rem;
-    color: #7fb89a;
+    color: ${t.color.accent};
     font-size: 14px;
   }
 
   .loading-spinner {
     width: 28px;
     height: 28px;
-    border: 3px solid rgba(127, 184, 154, 0.12);
-    border-top-color: #7fb89a;
+    border: 3px solid rgba(143, 191, 148, 0.12);
+    border-top-color: ${t.color.accent};
     border-radius: 50%;
     animation: ${spin} 0.7s linear infinite;
   }
@@ -475,18 +404,24 @@ const StyledTravelAlbum = styled.div`
     align-items: center;
     gap: 8px;
     padding: 2.5rem 1rem;
-    color: #94a3a0;
+    color: ${t.color.textMuted};
     text-align: center;
 
     p {
       font-size: 15px;
       font-weight: 500;
-      color: #c7d2cc;
+      color: ${t.color.textSoft};
     }
 
     span {
       font-size: 13px;
-      color: #94a3a0;
+      color: ${t.color.textMuted};
+    }
+  }
+
+  @media screen and (max-width: 600px) {
+    .more-cell {
+      border-radius: 8px;
     }
   }
 `;

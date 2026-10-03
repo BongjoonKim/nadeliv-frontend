@@ -5,6 +5,7 @@ import {
   TravelResponse,
   TravelListResponse,
   TravelMedia,
+  TravelMediaCountResponse,
 } from "../types/travel/travelTypes";
 
 // Travel CRUD
@@ -178,19 +179,51 @@ export async function uploadTravelMedia(props: FuncProps) {
         Authorization: `Bearer ${props.accessToken}`,
         "Content-Type": "multipart/form-data",
       },
+      // 업로드 진행률 (0~100). 호출처(useUploadTravelMedia)가 넘긴 콜백으로 전달
+      onUploadProgress: (evt) => {
+        if (!props.params.onProgress) return;
+        const total = evt.total ?? props.params.file?.size ?? 0;
+        if (total > 0) {
+          props.params.onProgress(Math.min(100, Math.round((evt.loaded / total) * 100)));
+        }
+      },
+      signal: props.params.signal,
     }
   )) as AxiosResponse<TravelMedia>;
 }
 
 export async function getTravelMedia(props: FuncProps) {
+  const query = new URLSearchParams({
+    page: String(props.params?.page ?? 0),
+    size: String(props.params?.size ?? 20),
+  });
+  if (props.params?.sort) query.set("sort", props.params.sort);
+  if (props.params?.type && props.params.type !== "all") {
+    query.set("type", props.params.type);
+  }
   return (await request.get(
-    `api/v1/travels/${props.params.travelId}/media?page=${props.params?.page ?? 0}&size=${props.params?.size ?? 20}`,
+    `api/v1/travels/${props.params.travelId}/media?${query.toString()}`,
     {
       headers: {
         Authorization: `Bearer ${props.accessToken}`,
       },
     }
   )) as AxiosResponse<TravelMedia[]>;
+}
+
+export async function getTravelMediaCount(props: FuncProps) {
+  const query =
+    props.params?.type && props.params.type !== "all"
+      ? `?type=${props.params.type}`
+      : "";
+  return (await request.get(
+    `api/v1/travels/${props.params.travelId}/media/count${query}`,
+    {
+      headers: {
+        Authorization: `Bearer ${props.accessToken}`,
+      },
+    }
+  )) as AxiosResponse<TravelMediaCountResponse>;
 }
 
 export async function deleteTravelMedia(props: FuncProps) {

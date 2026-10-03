@@ -1,5 +1,10 @@
 import useAuthEP from "../utils/useAuthEP";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   TravelResponse,
   TravelListResponse,
@@ -10,6 +15,9 @@ import {
   TravelPlacesRequest,
   TravelRole,
   TravelMedia,
+  TravelMediaSort,
+  TravelMediaType,
+  TravelScheduleRequest,
 } from "../types/travel/travelTypes";
 import {
   createTravel,
@@ -22,8 +30,12 @@ import {
   addTravelMember,
   removeTravelMember,
   updateMemberRole,
+  addTravelSchedule,
+  updateTravelSchedule,
+  deleteTravelSchedule,
   uploadTravelMedia,
   getTravelMedia,
+  getTravelMediaCount,
   deleteTravelMedia,
   downloadTravelMediaFile,
   downloadTravelMediaBatch,
@@ -244,7 +256,84 @@ export const useUpdateMemberRole = () => {
   });
 };
 
-// 미디어 목록 조회
+/* ── 일정(Schedules) ──
+ * 응답이 갱신된 여행 전체이므로 refetch 대신 캐시에 바로 반영한다.
+ * (연속 저장 시 다음 요청이 방금 생성된 일정 id 를 즉시 읽을 수 있어야 함) */
+
+// 일정 추가
+export const useAddTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TravelResponse,
+    Error,
+    { travelId: string; reqBody: TravelScheduleRequest }
+  >({
+    mutationFn: async ({ travelId, reqBody }) => {
+      const response = await authEP({
+        func: addTravelSchedule,
+        params: { travelId },
+        reqBody,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["travel", data.id], data);
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
+    },
+  });
+};
+
+// 일정 수정
+export const useUpdateTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    TravelResponse,
+    Error,
+    { travelId: string; scheduleId: string; reqBody: TravelScheduleRequest }
+  >({
+    mutationFn: async ({ travelId, scheduleId, reqBody }) => {
+      const response = await authEP({
+        func: updateTravelSchedule,
+        params: { travelId, scheduleId },
+        reqBody,
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["travel", data.id], data);
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
+    },
+  });
+};
+
+// 일정 삭제 (204 — 응답 본문 없음)
+export const useDeleteTravelSchedule = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { travelId: string; scheduleId: string }>({
+    mutationFn: async ({ travelId, scheduleId }) => {
+      await authEP({
+        func: deleteTravelSchedule,
+        params: { travelId, scheduleId },
+      });
+    },
+    onSuccess: (_, { travelId, scheduleId }) => {
+      queryClient.setQueryData<TravelResponse>(["travel", travelId], (old) =>
+        old
+          ? { ...old, schedules: old.schedules?.filter((s) => s.id !== scheduleId) }
+          : old
+      );
+      queryClient.invalidateQueries({ queryKey: ["myTravels"] });
+    },
+  });
+};
+
+// 미디어 목록 조회 (단일 페이지 — 대시보드 미리보기 스트립 등 소량 조회용)
 export const useGetTravelMedia = (travelId?: string, page = 0, size = 50) => {
   const authEP = useAuthEP();
 
@@ -263,7 +352,59 @@ export const useGetTravelMedia = (travelId?: string, page = 0, size = 50) => {
   });
 };
 
-// 미디어 업로드
+export const TRAVEL_MEDIA_PAGE_SIZE = 60;
+
+// 미디어 목록 무한 스크롤 (앨범 전용 화면). 마지막 페이지 판정 = 받은 개수 < size
+export const useGetTravelMediaInfinite = (
+  travelId?: string,
+  options: { sort?: TravelMediaSort; type?: TravelMediaType; size?: number } = {}
+) => {
+  const authEP = useAuthEP();
+  const sort: TravelMediaSort = options.sort ?? "created_desc";
+  const type: TravelMediaType = options.type ?? "all";
+  const size = options.size ?? TRAVEL_MEDIA_PAGE_SIZE;
+
+  return useInfiniteQuery<TravelMedia[], Error>({
+    queryKey: ["travelMedia", travelId, "infinite", sort, type, size],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      if (!travelId) throw new Error("travelId is required");
+      const response = await authEP({
+        func: getTravelMedia,
+        params: { travelId, page: pageParam as number, size, sort, type },
+      });
+      return response.data;
+    },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < size ? undefined : allPages.length,
+    enabled: !!travelId,
+    staleTime: 1000 * 60 * 3,
+  });
+};
+
+// 미디어 개수 (대시보드 Album 박스·앨범 헤더 탭 카운트)
+export const useGetTravelMediaCount = (
+  travelId?: string,
+  type: TravelMediaType = "all"
+) => {
+  const authEP = useAuthEP();
+
+  return useQuery<number>({
+    queryKey: ["travelMediaCount", travelId, type],
+    queryFn: async () => {
+      if (!travelId) throw new Error("travelId is required");
+      const response = await authEP({
+        func: getTravelMediaCount,
+        params: { travelId, type },
+      });
+      return response.data.count ?? 0;
+    },
+    enabled: !!travelId,
+    staleTime: 1000 * 60 * 3,
+  });
+};
+
+// 미디어 업로드 (onProgress 로 0~100 진행률, signal 로 취소)
 export const useUploadTravelMedia = () => {
   const authEP = useAuthEP();
   const queryClient = useQueryClient();
@@ -271,12 +412,18 @@ export const useUploadTravelMedia = () => {
   return useMutation<
     TravelMedia,
     Error,
-    { travelId: string; file: File; description?: string }
+    {
+      travelId: string;
+      file: File;
+      description?: string;
+      onProgress?: (percent: number) => void;
+      signal?: AbortSignal;
+    }
   >({
-    mutationFn: async ({ travelId, file, description }) => {
+    mutationFn: async ({ travelId, file, description, onProgress, signal }) => {
       const response = await authEP({
         func: uploadTravelMedia,
-        params: { travelId, file },
+        params: { travelId, file, onProgress, signal },
         reqBody: description ? { description } : undefined,
       });
       return response.data;
@@ -284,6 +431,9 @@ export const useUploadTravelMedia = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["travelMedia", variables.travelId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["travelMediaCount", variables.travelId],
       });
     },
   });
@@ -304,6 +454,9 @@ export const useDeleteTravelMedia = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["travelMedia", variables.travelId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["travelMediaCount", variables.travelId],
       });
     },
   });

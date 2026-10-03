@@ -11,7 +11,6 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Plus,
   ChevronRight,
   Plane,
   CheckCircle2,
@@ -31,7 +30,7 @@ import {
 } from "../../../../constants/travelDashboardItems";
 import {
   useGetTravel,
-  useGetTravelMedia,
+  useGetTravelMediaCount,
 } from "../../../../hooks/useTravelQueries";
 import {
   TravelDashboardItem,
@@ -41,6 +40,8 @@ import { useCurrentUser } from "../../../../hooks/useCurrentUser";
 import TravelAlbum from "./TravelAlbum";
 import TravelMembers from "./TravelMembers";
 import TravelSettings from "./TravelSettings";
+import TravelSchedules from "./TravelSchedules";
+import { countScheduleItems } from "./TravelSchedules/scheduleUtils";
 import DashboardCustomize from "./DashboardCustomize";
 import { getTravelProjectColor } from "../common/TravelProjectThumb";
 
@@ -81,8 +82,8 @@ function TravelDashboard(props: TravelDashboardProps) {
   const navigate = useNavigate();
   const { data: travel, isLoading, error } = useGetTravel(travelId);
   const { data: currentUser } = useCurrentUser();
-  // Album 을 박스로 표시할 때 사진 개수용 (TravelAlbum 과 동일 쿼리키 → 캐시 공유)
-  const { data: travelMedia } = useGetTravelMedia(travelId);
+  // Album 을 박스로 표시할 때 사진 개수용 (count 전용 엔드포인트 — 목록 50개 상한과 무관)
+  const { data: travelMediaCount } = useGetTravelMediaCount(travelId);
   const [loaded, setLoaded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -251,16 +252,20 @@ function TravelDashboard(props: TravelDashboardProps) {
         return (
           <div key={item.key} className="stat-card">
             <Clock size={18} className="stat-icon" />
-            <span className="stat-value">{travel.schedules?.length ?? 0}</span>
+            <span className="stat-value">{countScheduleItems(travel.schedules)}</span>
             <span className="stat-label">Schedules</span>
           </div>
         );
       // 섹션을 박스로 표시할 때의 축약형
       case "album":
         return (
-          <div key={item.key} className="stat-card">
+          <div
+            key={item.key}
+            className="stat-card clickable"
+            onClick={() => navigate(`/travel/album/${travel.id}`)}
+          >
             <ImageIcon size={18} className="stat-icon" />
-            <span className="stat-value">{travelMedia?.length ?? 0}</span>
+            <span className="stat-value">{travelMediaCount ?? 0}</span>
             <span className="stat-label">Album</span>
           </div>
         );
@@ -367,7 +372,7 @@ function TravelDashboard(props: TravelDashboardProps) {
   const renderRowSection = (item: TravelDashboardItem) => {
     switch (item.key) {
       case "album":
-        return <TravelAlbum key={item.key} travelId={travel.id} />;
+        return <TravelAlbum key={item.key} travelId={travel.id} canEdit={canEdit} />;
       case "dates":
         return travel.startDate || travel.endDate ? (
           <div key={item.key} className="dash-section date-section">
@@ -418,57 +423,7 @@ function TravelDashboard(props: TravelDashboardProps) {
       case "schedules":
         return (
           <div key={item.key} className="dash-section">
-            <div className="section-header">
-              <h3 className="section-title">
-                <Clock size={16} />
-                Schedules
-              </h3>
-              {canEdit && (
-                <button className="section-action">
-                  <Plus size={16} />
-                </button>
-              )}
-            </div>
-            <div className="schedules-list">
-              {travel.schedules
-                ?.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                .map((schedule) => (
-                  <div key={schedule.id} className="schedule-item">
-                    <div className="schedule-day">
-                      {schedule.dayNumber ? `Day ${schedule.dayNumber}` : ""}
-                    </div>
-                    <div className="schedule-content">
-                      <span className="schedule-title">{schedule.title}</span>
-                      {schedule.date && (
-                        <span className="schedule-date">
-                          {formatDate(schedule.date)}
-                        </span>
-                      )}
-                      {schedule.description && (
-                        <p className="schedule-desc">{schedule.description}</p>
-                      )}
-                      {schedule.places && schedule.places.length > 0 && (
-                        <div className="schedule-places">
-                          {schedule.places.map((place, i) => (
-                            <span key={i} className="place-chip">
-                              <MapPin size={11} />
-                              {place.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <ChevronRight size={16} className="schedule-arrow" />
-                  </div>
-                ))}
-              {(!travel.schedules || travel.schedules.length === 0) && (
-                <div className="empty-schedules">
-                  <Clock size={32} />
-                  <p>No schedules yet</p>
-                  <span>Add your first schedule to start planning</span>
-                </div>
-              )}
-            </div>
+            <TravelSchedules travel={travel} canEdit={canEdit} />
           </div>
         );
       default:
@@ -1060,108 +1015,6 @@ const StyledTravelDashboard = styled.div`
     }
   }
 
-  /* Schedules */
-  .schedules-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .schedule-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: #14191a;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    cursor: pointer;
-    transition: all 0.25s ease;
-
-    &:hover {
-      background: #1a2021;
-      border-color: rgba(80, 107, 92, 0.45);
-    }
-  }
-
-  .schedule-day {
-    min-width: 56px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #7fb89a;
-    padding-top: 2px;
-  }
-
-  .schedule-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .schedule-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #ffffff;
-  }
-
-  .schedule-date {
-    font-size: 12px;
-    color: #94a3a0;
-  }
-
-  .schedule-desc {
-    font-size: 13px;
-    color: #d6dad8;
-    line-height: 1.5;
-  }
-
-  .schedule-places {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 6px;
-  }
-
-  .place-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
-    background: rgba(127, 184, 154, 0.14);
-    color: #7fb89a;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .schedule-arrow {
-    color: #7fb89a;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .empty-schedules {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 2.5rem 1rem;
-    color: #94a3a0;
-    text-align: center;
-
-    p {
-      font-size: 15px;
-      font-weight: 500;
-      color: #c7d2cc;
-    }
-
-    span {
-      font-size: 13px;
-      color: #94a3a0;
-    }
-  }
-
   /* Plugins */
   .plugins-grid {
     display: grid;
@@ -1235,15 +1088,6 @@ const StyledTravelDashboard = styled.div`
 
     .dash-stats {
       grid-template-columns: repeat(2, 1fr);
-    }
-
-    .schedule-item {
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .schedule-day {
-      min-width: auto;
     }
   }
 `;
