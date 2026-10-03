@@ -58,7 +58,7 @@ function FooterLayout() {
         fontFamily={t.font.sans}
       >
         <Text fontSize="12px" color={c.muted}>
-          © {new Date().getFullYear()} nadeliv · Discover the Korea beyond Seoul
+          © {new Date().getFullYear()} nadeliv · Find, plan, and keep every journey
         </Text>
         <Link
           href={`mailto:${CONTACT_EMAIL}`}
