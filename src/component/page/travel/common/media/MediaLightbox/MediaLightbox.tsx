@@ -84,6 +84,17 @@ function MediaLightbox({
 
   const isVideo = media?.mimeType?.startsWith("video/");
 
+  // 라이트박스 이미지 후보 (중복 제거, 순서 유지)
+  const imageCandidates = media
+    ? Array.from(
+        new Set(
+          [media.displayUrl, media.fileUrl, media.thumbnailUrl].filter(
+            (u): u is string => !!u
+          )
+        )
+      )
+    : [];
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -143,15 +154,16 @@ function MediaLightbox({
             ) : (
               <img
                 key={media.id}
-                src={media.fileUrl}
+                src={imageCandidates[0]}
                 alt={media.originalFileName}
                 className="lightbox-image"
-                // HEIC 원본은 Safari 외 브라우저가 못 그림 → Lambda 가 만든 JPEG 썸네일로 대체
+                // display(2048px JPEG) → 원본 → 썸네일 순으로 시도.
+                // display 는 3단계 이후 업로드분에만 있고, HEIC 원본은 Safari 외 브라우저가 못 그린다
                 onError={(e) => {
                   const img = e.currentTarget;
-                  if (media.thumbnailUrl && img.src !== media.thumbnailUrl) {
-                    img.src = media.thumbnailUrl;
-                  }
+                  const idx = imageCandidates.indexOf(img.src);
+                  const next = imageCandidates[idx + 1];
+                  if (next) img.src = next;
                 }}
               />
             )}

@@ -36,8 +36,8 @@ import {
   getTravelMedia,
   getTravelMediaCount,
   deleteTravelMedia,
-  downloadTravelMediaFile,
-  downloadTravelMediaBatch,
+  getTravelMediaDownloadUrl,
+  createTravelMediaDownloadTicket,
 } from "../endpoints/travel-endpoints";
 
 // 내 여행 목록 조회
@@ -429,38 +429,47 @@ export const useDeleteTravelMedia = () => {
 };
 
 // 미디어 다운로드
+/** 브라우저가 URL 로 바로 이동해 받게 한다 — blob 으로 메모리에 담지 않으므로 GB 단위도 디스크로 바로 간다 */
+const triggerBrowserDownload = (href: string, fileName?: string) => {
+  const a = document.createElement("a");
+  a.href = href;
+  // cross-origin 이라 download 속성은 무시되지만, 서버가 Content-Disposition: attachment 를 내려 저장 대화상자가 뜬다
+  if (fileName) a.download = fileName;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+const absoluteBackendUrl = (path: string) => {
+  const base = `${process.env["REACT_APP_BACKEND_URI"] ?? ""}`;
+  return new URL(path, base.endsWith("/") ? base : `${base}/`).toString();
+};
+
 export const useDownloadTravelMedia = () => {
   const authEP = useAuthEP();
 
+  // 단일: S3 presigned GET URL (원본 파일명으로 저장되도록 서명에 Content-Disposition 포함)
   const downloadSingle = async (
     travelId: string,
     mediaId: string,
     fileName: string
   ) => {
     const response = await authEP({
-      func: downloadTravelMediaFile,
+      func: getTravelMediaDownloadUrl,
       params: { travelId, mediaId },
     });
-    const url = URL.createObjectURL(response.data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerBrowserDownload(response.data.url, response.data.fileName || fileName);
   };
 
+  // 일괄: 티켓 발급 → 비인증 GET 으로 ZIP 스트리밍
   const downloadBatch = async (travelId: string, mediaIds: string[]) => {
     const response = await authEP({
-      func: downloadTravelMediaBatch,
+      func: createTravelMediaDownloadTicket,
       params: { travelId },
       reqBody: { mediaIds },
     });
-    const url = URL.createObjectURL(response.data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "travel-media.zip";
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerBrowserDownload(absoluteBackendUrl(response.data.path), response.data.fileName);
   };
 
   return { downloadSingle, downloadBatch };

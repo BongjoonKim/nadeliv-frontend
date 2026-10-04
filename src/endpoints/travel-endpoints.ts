@@ -7,6 +7,8 @@ import {
   TravelMedia,
   TravelMediaCountResponse,
   MediaUploadInitResponse,
+  MediaDownloadUrlResponse,
+  MediaDownloadTicketResponse,
 } from "../types/travel/travelTypes";
 
 // Travel CRUD
@@ -277,27 +279,27 @@ export async function putToPresignedUrl(params: {
 }
 
 // Media Download
-export async function downloadTravelMediaFile(props: FuncProps) {
+// 단일: S3 presigned GET URL 을 받아 브라우저가 S3 에서 바로 내려받는다 (EC2 를 거치지 않음)
+export async function getTravelMediaDownloadUrl(props: FuncProps) {
   return (await request.get(
-    `api/v1/travels/${props.params.travelId}/media/${props.params.mediaId}/download`,
+    `api/v1/travels/${props.params.travelId}/media/${props.params.mediaId}/download-url`,
     {
       headers: {
         Authorization: `Bearer ${props.accessToken}`,
       },
-      responseType: "blob",
     }
-  )) as AxiosResponse<Blob>;
+  )) as AxiosResponse<MediaDownloadUrlResponse>;
 }
 
-export async function downloadTravelMediaBatch(props: FuncProps) {
+// 일괄: 티켓을 발급받고, 응답의 path 로 <a href> 이동하면 ZIP 이 스트리밍으로 내려온다
+export async function createTravelMediaDownloadTicket(props: FuncProps) {
   return (await request.post(
-    `api/v1/travels/${props.params.travelId}/media/download`,
+    `api/v1/travels/${props.params.travelId}/media/downloads`,
     props.reqBody,
     {
       headers: {
         Authorization: `Bearer ${props.accessToken}`,
       },
-      responseType: "blob",
     }
-  )) as AxiosResponse<Blob>;
+  )) as AxiosResponse<MediaDownloadTicketResponse>;
 }

@@ -228,6 +228,8 @@ export interface TravelMedia {
   originalFileName: string;
   fileUrl: string;
   thumbnailUrl?: string;
+  /** 중간 크기(2048px) JPEG — 라이트박스용. HEIC 원본도 이걸로 보인다. 영상은 없음 */
+  displayUrl?: string;
   mimeType: string;
   fileSize: number;
   width?: number;
@@ -236,4 +238,21 @@ export interface TravelMedia {
   description?: string;
   takenAt?: string;
   created?: string;
+}
+
+// ---- Media Download (3단계)
+export interface MediaDownloadUrlResponse {
+  url: string;
+  fileName: string;
+  expiresAt?: string;
+}
+
+export interface MediaDownloadTicketResponse {
+  ticket: string;
+  /** api/v1/travels/ps/downloads/{ticket} — REACT_APP_BACKEND_URI 뒤에 붙여 GET */
+  path: string;
+  fileName: string;
+  fileCount: number;
+  totalBytes?: number;
+  expiresAt?: string;
 }
