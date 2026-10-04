@@ -1,11 +1,12 @@
 import { request } from "../appConfig/request-response";
-import { AxiosResponse } from "axios";
+import axios, { AxiosResponse } from "axios";
 import { FuncProps } from "../utils/useAuthEP";
 import {
   TravelResponse,
   TravelListResponse,
   TravelMedia,
   TravelMediaCountResponse,
+  MediaUploadInitResponse,
 } from "../types/travel/travelTypes";
 
 // Travel CRUD
@@ -162,36 +163,6 @@ export async function deleteTravelSchedule(props: FuncProps) {
 }
 
 // Media Management
-export async function uploadTravelMedia(props: FuncProps) {
-  const formData = new FormData();
-  formData.append("file", props.params.file);
-  if (props.reqBody) {
-    formData.append(
-      "request",
-      new Blob([JSON.stringify(props.reqBody)], { type: "application/json" })
-    );
-  }
-  return (await request.post(
-    `api/v1/travels/${props.params.travelId}/media`,
-    formData,
-    {
-      headers: {
-        Authorization: `Bearer ${props.accessToken}`,
-        "Content-Type": "multipart/form-data",
-      },
-      // 업로드 진행률 (0~100). 호출처(useUploadTravelMedia)가 넘긴 콜백으로 전달
-      onUploadProgress: (evt) => {
-        if (!props.params.onProgress) return;
-        const total = evt.total ?? props.params.file?.size ?? 0;
-        if (total > 0) {
-          props.params.onProgress(Math.min(100, Math.round((evt.loaded / total) * 100)));
-        }
-      },
-      signal: props.params.signal,
-    }
-  )) as AxiosResponse<TravelMedia>;
-}
-
 export async function getTravelMedia(props: FuncProps) {
   const query = new URLSearchParams({
     page: String(props.params?.page ?? 0),
@@ -235,6 +206,74 @@ export async function deleteTravelMedia(props: FuncProps) {
       },
     }
   )) as AxiosResponse<void>;
+}
+
+// Media Direct Upload (presigned) — 웹·iOS 공용 API
+export async function initTravelMediaUpload(props: FuncProps) {
+  return (await request.post(
+    `api/v1/travels/${props.params.travelId}/media/uploads`,
+    props.reqBody,
+    {
+      headers: {
+        Authorization: `Bearer ${props.accessToken}`,
+      },
+    }
+  )) as AxiosResponse<MediaUploadInitResponse>;
+}
+
+export async function refreshTravelMediaUploadParts(props: FuncProps) {
+  return (await request.post(
+    `api/v1/travels/${props.params.travelId}/media/uploads/${props.params.uploadId}/parts`,
+    { partNumbers: props.params.partNumbers ?? [] },
+    {
+      headers: {
+        Authorization: `Bearer ${props.accessToken}`,
+      },
+    }
+  )) as AxiosResponse<MediaUploadInitResponse>;
+}
+
+export async function completeTravelMediaUpload(props: FuncProps) {
+  return (await request.post(
+    `api/v1/travels/${props.params.travelId}/media/uploads/${props.params.uploadId}/complete`,
+    null,
+    {
+      headers: {
+        Authorization: `Bearer ${props.accessToken}`,
+      },
+    }
+  )) as AxiosResponse<TravelMedia>;
+}
+
+export async function abortTravelMediaUpload(props: FuncProps) {
+  return (await request.delete(
+    `api/v1/travels/${props.params.travelId}/media/uploads/${props.params.uploadId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${props.accessToken}`,
+      },
+    }
+  )) as AxiosResponse<void>;
+}
+
+/**
+ * presigned URL 로 S3 에 직접 PUT (인증 헤더·쿠키 없음).
+ * SINGLE 은 서명된 Content-Type 을 그대로 보내야 하고, MULTIPART part 는 contentType 없이 보낸다.
+ */
+export async function putToPresignedUrl(params: {
+  url: string;
+  body: Blob;
+  contentType?: string;
+  onProgress?: (loadedBytes: number) => void;
+  signal?: AbortSignal;
+}) {
+  return await axios.put(params.url, params.body, {
+    headers: params.contentType ? { "Content-Type": params.contentType } : {},
+    // 기본 transformRequest 가 Blob 을 건드리지 않도록 그대로 전달
+    transformRequest: [(data) => data],
+    onUploadProgress: (evt) => params.onProgress?.(evt.loaded),
+    signal: params.signal,
+  });
 }
 
 // Media Download

@@ -33,7 +33,6 @@ import {
   addTravelSchedule,
   updateTravelSchedule,
   deleteTravelSchedule,
-  uploadTravelMedia,
   getTravelMedia,
   getTravelMediaCount,
   deleteTravelMedia,
@@ -404,40 +403,7 @@ export const useGetTravelMediaCount = (
   });
 };
 
-// 미디어 업로드 (onProgress 로 0~100 진행률, signal 로 취소)
-export const useUploadTravelMedia = () => {
-  const authEP = useAuthEP();
-  const queryClient = useQueryClient();
-
-  return useMutation<
-    TravelMedia,
-    Error,
-    {
-      travelId: string;
-      file: File;
-      description?: string;
-      onProgress?: (percent: number) => void;
-      signal?: AbortSignal;
-    }
-  >({
-    mutationFn: async ({ travelId, file, description, onProgress, signal }) => {
-      const response = await authEP({
-        func: uploadTravelMedia,
-        params: { travelId, file, onProgress, signal },
-        reqBody: description ? { description } : undefined,
-      });
-      return response.data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["travelMedia", variables.travelId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["travelMediaCount", variables.travelId],
-      });
-    },
-  });
-};
+// 미디어 업로드는 presigned 직접 업로드 — hooks/useTravelMediaUpload.ts 참조
 
 // 미디어 삭제
 export const useDeleteTravelMedia = () => {

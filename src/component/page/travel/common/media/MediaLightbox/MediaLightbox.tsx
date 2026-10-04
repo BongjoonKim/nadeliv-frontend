@@ -146,6 +146,13 @@ function MediaLightbox({
                 src={media.fileUrl}
                 alt={media.originalFileName}
                 className="lightbox-image"
+                // HEIC 원본은 Safari 외 브라우저가 못 그림 → Lambda 가 만든 JPEG 썸네일로 대체
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (media.thumbnailUrl && img.src !== media.thumbnailUrl) {
+                    img.src = media.thumbnailUrl;
+                  }
+                }}
               />
             )}
           </div>
