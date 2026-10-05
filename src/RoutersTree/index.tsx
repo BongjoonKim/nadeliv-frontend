@@ -7,6 +7,7 @@ import ChatRoutes from "./ChatRoutes";
 import MainPage from "../component/page/MainPage";
 import LoginRoutes from "./LoginRoutes/LoginRoutes";
 import MainLayout from "../common/layout/MainLayout/MainLayout";
+import TravelUploadTray from "../common/widget/TravelUploadTray";
 import HomePage from "../component/page/homePage/HomePage";
 import AdminRoutes from "./AdminRoutes";
 import ForbiddenPage from "../component/page/error/ForbiddenPage";
@@ -25,6 +26,8 @@ export default function RoutersTree() {
   return (
     <Router>
         <PageViewTracker/>
+        {/* Travel 앨범 업로드는 페이지를 옮겨도 이어지도록 라우터 전역에서 처리 */}
+        <TravelUploadTray/>
         <Routes>
             <Route path="/*" element={<MainPage/>}/>
             <Route path="/blog/*" element={<BlogRoutes/>}/>

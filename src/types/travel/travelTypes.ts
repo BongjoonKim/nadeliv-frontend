@@ -181,6 +181,45 @@ export interface TravelMediaCountResponse {
   count: number;
 }
 
+// ==================== Presigned 직접 업로드 (백엔드 /media/uploads) ====================
+
+export type MediaUploadMethod = "SINGLE" | "MULTIPART";
+
+/** 클라이언트가 파일에서 읽어 함께 보내는 메타데이터 (EXIF / 영상 메타) */
+export interface MediaFileMetadata {
+  width?: number;
+  height?: number;
+  /** 초 단위 */
+  duration?: number;
+  /** 촬영 시각 — 타임존 없는 로컬 시각 "YYYY-MM-DDTHH:mm:ss" */
+  takenAt?: string;
+}
+
+export interface MediaUploadInitRequest extends MediaFileMetadata {
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  description?: string;
+}
+
+export interface MediaUploadPart {
+  partNumber: number;
+  /** 서명에 포함된 바이트 수 — 정확히 이 크기로 PUT */
+  size: number;
+  url: string;
+}
+
+export interface MediaUploadInitResponse {
+  uploadId: string;
+  method: MediaUploadMethod;
+  contentType: string;
+  partSize: number;
+  partCount: number;
+  parts: MediaUploadPart[];
+  urlExpiresAt?: string;
+  sessionExpiresAt?: string;
+}
+
 export interface TravelMedia {
   id: string;
   travelId: string;
@@ -189,6 +228,8 @@ export interface TravelMedia {
   originalFileName: string;
   fileUrl: string;
   thumbnailUrl?: string;
+  /** 중간 크기(2048px) JPEG — 라이트박스용. HEIC 원본도 이걸로 보인다. 영상은 없음 */
+  displayUrl?: string;
   mimeType: string;
   fileSize: number;
   width?: number;
@@ -197,4 +238,21 @@ export interface TravelMedia {
   description?: string;
   takenAt?: string;
   created?: string;
+}
+
+// ---- Media Download (3단계)
+export interface MediaDownloadUrlResponse {
+  url: string;
+  fileName: string;
+  expiresAt?: string;
+}
+
+export interface MediaDownloadTicketResponse {
+  ticket: string;
+  /** api/v1/travels/ps/downloads/{ticket} — REACT_APP_BACKEND_URI 뒤에 붙여 GET */
+  path: string;
+  fileName: string;
+  fileCount: number;
+  totalBytes?: number;
+  expiresAt?: string;
 }

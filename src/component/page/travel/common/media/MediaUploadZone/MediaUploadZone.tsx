@@ -1,26 +1,20 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import styled, { keyframes } from "styled-components";
-import { CloudUpload, Check, AlertCircle, X, RotateCcw, Film } from "lucide-react";
-import { useUploadTravelMedia } from "../../../../../../hooks/useTravelQueries";
+import styled from "styled-components";
+import { useSetAtom } from "jotai";
+import { CloudUpload } from "lucide-react";
 import { homeTokens } from "../../../../MainPage/MainBody/homeTokens";
+import { useTravelUploadQueue } from "../../../../../../hooks/useTravelMediaUpload";
+import { travelUploadZoneCountAtom } from "../../../../../../stores/jotai/travelUploadAtom";
+import UploadQueueItem, {
+  ProgressTrack,
+  summarizeUploads,
+  formatFileSize,
+} from "../../../../../../common/widget/TravelUploadTray/UploadQueueItem";
+import { toaster } from "../../../../../../common/elements/toaster";
 
 const t = homeTokens;
 
-type UploadStatus = "pending" | "uploading" | "done" | "error" | "cancelled";
-
-interface UploadItem {
-  file: File;
-  id: string;
-  status: UploadStatus;
-  /** 0~100 */
-  progress: number;
-  preview: string | null;
-  controller?: AbortController;
-  errorMessage?: string;
-}
-
-// 동시에 올리는 파일 수. 브라우저 커넥션·EC2 부하를 고려해 2개로 제한
-const MAX_CONCURRENT_UPLOADS = 2;
+export { formatFileSize };
 
 export interface MediaUploadZoneProps {
   travelId: string;
@@ -30,13 +24,11 @@ export interface MediaUploadZoneProps {
   onExternalFilesConsumed?: () => void;
 }
 
-export const formatFileSize = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-};
-
+/**
+ * 업로드 존 — 파일을 전역 업로드 큐(travelUploadAtom)에 넣고, 이 프로젝트의 큐를 보여준다.
+ * 실제 업로드(S3 presigned 직접 PUT)는 앱 루트의 TravelUploadTray 가 처리하므로
+ * 이 존을 닫거나 다른 페이지로 가도 업로드는 계속된다.
+ */
 function MediaUploadZone({
   travelId,
   onUploadComplete,
@@ -44,35 +36,30 @@ function MediaUploadZone({
   onExternalFilesConsumed,
 }: MediaUploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadMutation = useUploadTravelMedia();
-  // 뮤테이션 객체는 렌더마다 바뀌므로 ref 로 고정해 큐 처리 effect 의 재실행을 막는다
-  const mutateRef = useRef(uploadMutation.mutateAsync);
-  mutateRef.current = uploadMutation.mutateAsync;
+  const { queue, enqueue, cancel, retry, remove, clearFinished } = useTravelUploadQueue();
+  const setZoneCount = useSetAtom(travelUploadZoneCountAtom);
 
-  const addFilesToQueue = useCallback((files: File[]) => {
-    const validFiles = files.filter(
-      (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
-    );
-    if (validFiles.length === 0) return;
+  // 존이 떠 있는 동안 전역 트레이는 숨김 (같은 목록 중복 표시 방지)
+  useEffect(() => {
+    setZoneCount((c) => c + 1);
+    return () => setZoneCount((c) => Math.max(0, c - 1));
+  }, [setZoneCount]);
 
-    setUploadQueue((prev) => {
-      // 같은 이름·크기 파일이 이미 큐에 있으면 중복으로 보고 건너뜀
-      const existing = new Set(prev.map((i) => `${i.file.name}:${i.file.size}`));
-      const newItems: UploadItem[] = validFiles
-        .filter((f) => !existing.has(`${f.name}:${f.size}`))
-        .map((file) => ({
-          file,
-          id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
-          status: "pending" as const,
-          progress: 0,
-          // 영상은 <img> 미리보기가 불가 → 아이콘으로 대체
-          preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
-        }));
-      return [...prev, ...newItems];
-    });
-  }, []);
+  const addFilesToQueue = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
+      const skipped = enqueue(travelId, files);
+      const notes: string[] = [];
+      if (skipped.unsupported > 0) notes.push(`${skipped.unsupported} not a photo or video`);
+      if (skipped.tooLarge > 0) notes.push(`${skipped.tooLarge} over 5GB`);
+      if (skipped.duplicates > 0) notes.push(`${skipped.duplicates} already queued`);
+      if (notes.length > 0) {
+        toaster.create({ title: `Skipped: ${notes.join(", ")}`, type: "warning", duration: 3000 });
+      }
+    },
+    [enqueue, travelId]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -114,125 +101,9 @@ function MediaUploadZone({
     }
   }, [externalFiles, addFilesToQueue, onExternalFilesConsumed]);
 
-  const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
-    setUploadQueue((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-  }, []);
-
-  const removeFromQueue = useCallback((id: string) => {
-    setUploadQueue((prev) => {
-      const item = prev.find((i) => i.id === id);
-      if (item?.preview) URL.revokeObjectURL(item.preview);
-      return prev.filter((i) => i.id !== id);
-    });
-  }, []);
-
-  const cancelUpload = useCallback(
-    (id: string) => {
-      const item = uploadQueue.find((i) => i.id === id);
-      item?.controller?.abort();
-      updateItem(id, { status: "cancelled", controller: undefined });
-    },
-    [uploadQueue, updateItem]
-  );
-
-  const retryUpload = useCallback(
-    (id: string) => {
-      updateItem(id, { status: "pending", progress: 0, errorMessage: undefined });
-    },
-    [updateItem]
-  );
-
-  const clearFinished = useCallback(() => {
-    setUploadQueue((prev) => {
-      prev
-        .filter((i) => i.status === "done" || i.status === "cancelled")
-        .forEach((i) => i.preview && URL.revokeObjectURL(i.preview));
-      return prev.filter((i) => i.status !== "done" && i.status !== "cancelled");
-    });
-  }, []);
-
-  // 큐 처리: pending 중 앞에서부터 MAX_CONCURRENT_UPLOADS 개까지 동시 업로드
-  useEffect(() => {
-    const uploadingCount = uploadQueue.filter((i) => i.status === "uploading").length;
-    if (uploadingCount >= MAX_CONCURRENT_UPLOADS) return;
-    const nextItem = uploadQueue.find((i) => i.status === "pending");
-    if (!nextItem) return;
-
-    const controller = new AbortController();
-    updateItem(nextItem.id, { status: "uploading", progress: 0, controller });
-
-    mutateRef
-      .current({
-        travelId,
-        file: nextItem.file,
-        signal: controller.signal,
-        onProgress: (percent) => updateItem(nextItem.id, { progress: percent }),
-      })
-      .then(() => {
-        updateItem(nextItem.id, { status: "done", progress: 100, controller: undefined });
-      })
-      .catch((err: any) => {
-        if (controller.signal.aborted) {
-          updateItem(nextItem.id, { status: "cancelled", controller: undefined });
-          return;
-        }
-        const message =
-          err?.response?.data?.message ||
-          err?.response?.data?.error ||
-          err?.message ||
-          "Upload failed";
-        updateItem(nextItem.id, { status: "error", controller: undefined, errorMessage: message });
-      });
-  }, [uploadQueue, travelId, updateItem]);
-
-  // 업로드 중 탭 닫기·새로고침 경고
-  const isUploading = uploadQueue.some(
-    (i) => i.status === "uploading" || i.status === "pending"
-  );
-  useEffect(() => {
-    if (!isUploading) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isUploading]);
-
-  // Cleanup blob URLs on unmount
-  useEffect(() => {
-    return () => {
-      uploadQueue.forEach((item) => item.preview && URL.revokeObjectURL(item.preview));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 전체 진행률 — 파일 크기 가중 평균
-  const summary = useMemo(() => {
-    const active = uploadQueue.filter((i) => i.status !== "cancelled");
-    const totalBytes = active.reduce((acc, i) => acc + i.file.size, 0);
-    const loadedBytes = active.reduce((acc, i) => {
-      if (i.status === "done") return acc + i.file.size;
-      if (i.status === "uploading") return acc + (i.file.size * i.progress) / 100;
-      return acc;
-    }, 0);
-    const doneCount = active.filter((i) => i.status === "done").length;
-    const errorCount = active.filter((i) => i.status === "error").length;
-    return {
-      total: active.length,
-      doneCount,
-      errorCount,
-      totalBytes,
-      loadedBytes,
-      percent: totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 100) : 0,
-    };
-  }, [uploadQueue]);
-
-  const allDone =
-    uploadQueue.length > 0 &&
-    uploadQueue.every(
-      (i) => i.status === "done" || i.status === "error" || i.status === "cancelled"
-    );
+  const items = useMemo(() => queue.filter((i) => i.travelId === travelId), [queue, travelId]);
+  const summary = useMemo(() => summarizeUploads(items), [items]);
+  const allDone = items.length > 0 && !summary.isActive;
 
   return (
     <StyledMediaUploadZone>
@@ -247,21 +118,23 @@ function MediaUploadZone({
           ref={fileInputRef}
           type="file"
           multiple
-          accept="image/*,video/*"
+          accept="image/*,video/*,.heic,.heif"
           className="file-input"
           onChange={handleFileSelect}
         />
         <CloudUpload size={32} className="dropzone-icon" />
         <p className="dropzone-text">Drag photos or videos here</p>
-        <span className="dropzone-sub">or click to browse · up to 500MB per file</span>
+        <span className="dropzone-sub">
+          or click to browse · up to 5GB per file · keeps uploading if you leave this page
+        </span>
       </div>
 
-      {uploadQueue.length > 0 && (
+      {items.length > 0 && (
         <div className="upload-queue">
           {/* 전체 진행률 */}
           <div className="queue-summary">
             <div className="summary-text">
-              {isUploading ? (
+              {summary.isActive ? (
                 <span>
                   Uploading {Math.min(summary.doneCount + 1, summary.total)} of {summary.total}
                 </span>
@@ -276,98 +149,40 @@ function MediaUploadZone({
                 {summary.percent}%
               </span>
             </div>
-            <div className="progress-track">
+            <ProgressTrack>
               <div className="progress-fill" style={{ width: `${summary.percent}%` }} />
-            </div>
+            </ProgressTrack>
           </div>
 
-          {uploadQueue.map((item) => (
-            <div key={item.id} className={`queue-item ${item.status}`}>
-              {item.preview ? (
-                <img src={item.preview} alt={item.file.name} className="queue-preview" />
-              ) : (
-                <div className="queue-preview queue-preview--video">
-                  <Film size={18} />
-                </div>
-              )}
-              <div className="queue-info">
-                <div className="queue-row">
-                  <span className="queue-name">{item.file.name}</span>
-                  <span className="queue-size">
-                    {item.status === "uploading"
-                      ? `${item.progress}%`
-                      : item.status === "cancelled"
-                      ? "Cancelled"
-                      : item.status === "error"
-                      ? item.errorMessage || "Failed"
-                      : formatFileSize(item.file.size)}
-                  </span>
-                </div>
-                {(item.status === "uploading" || item.status === "pending") && (
-                  <div className="progress-track small">
-                    <div
-                      className="progress-fill"
-                      style={{ width: `${item.status === "uploading" ? item.progress : 0}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="queue-status">
-                {item.status === "done" && <Check size={16} className="status-done" />}
-                {item.status === "error" && (
-                  <>
-                    <AlertCircle size={16} className="status-error" />
-                    <button
-                      className="queue-icon-btn"
-                      title="Retry"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        retryUpload(item.id);
-                      }}
-                    >
-                      <RotateCcw size={14} />
-                    </button>
-                  </>
-                )}
-                {item.status === "uploading" && (
-                  <button
-                    className="queue-icon-btn"
-                    title="Cancel"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      cancelUpload(item.id);
-                    }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-                {(item.status === "pending" ||
-                  item.status === "error" ||
-                  item.status === "cancelled") && (
-                  <button
-                    className="queue-icon-btn"
-                    title="Remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromQueue(item.id);
-                    }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
+          {items.map((item) => (
+            <UploadQueueItem
+              key={item.id}
+              item={item}
+              onCancel={cancel}
+              onRetry={retry}
+              onRemove={remove}
+            />
           ))}
 
           <div className="queue-footer">
-            {uploadQueue.some((i) => i.status === "done" || i.status === "cancelled") && (
-              <button className="ghost-btn" onClick={clearFinished}>
+            {items.some((i) => i.status === "done" || i.status === "cancelled") && (
+              <button className="ghost-btn" onClick={() => clearFinished(travelId)}>
                 Clear finished
               </button>
             )}
-            {allDone && (
-              <button className="done-btn" onClick={onUploadComplete}>
+            {allDone ? (
+              <button
+                className="done-btn"
+                onClick={() => {
+                  clearFinished(travelId);
+                  onUploadComplete();
+                }}
+              >
                 Done
+              </button>
+            ) : (
+              <button className="ghost-btn" onClick={onUploadComplete}>
+                Hide
               </button>
             )}
           </div>
@@ -378,11 +193,6 @@ function MediaUploadZone({
 }
 
 export default MediaUploadZone;
-
-const shimmer = keyframes`
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-`;
 
 const StyledMediaUploadZone = styled.div`
   margin-bottom: 16px;
@@ -458,130 +268,6 @@ const StyledMediaUploadZone = styled.div`
     font-weight: 500;
     color: ${t.color.textMuted};
     white-space: nowrap;
-  }
-
-  .progress-track {
-    width: 100%;
-    height: 6px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-
-    &.small {
-      height: 3px;
-      margin-top: 4px;
-    }
-  }
-
-  .progress-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(
-      90deg,
-      ${t.color.accentStrong},
-      ${t.color.accent},
-      ${t.color.accentStrong}
-    );
-    background-size: 200% 100%;
-    animation: ${shimmer} 1.6s linear infinite;
-    transition: width 0.2s ease;
-  }
-
-  .queue-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    border-radius: 12px;
-    background: ${t.color.surface};
-    border: 1px solid ${t.color.border};
-
-    &.done,
-    &.cancelled {
-      opacity: 0.6;
-    }
-
-    &.error {
-      border-color: rgba(239, 68, 68, 0.3);
-    }
-  }
-
-  .queue-preview {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    object-fit: cover;
-    flex-shrink: 0;
-
-    &--video {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: ${t.color.surface3};
-      color: ${t.color.textMuted};
-    }
-  }
-
-  .queue-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .queue-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .queue-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: ${t.color.text};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .queue-size {
-    font-size: 11px;
-    color: ${t.color.textMuted};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 50%;
-  }
-
-  .queue-status {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .status-done {
-    color: #22c55e;
-  }
-
-  .status-error {
-    color: #ef4444;
-  }
-
-  .queue-icon-btn {
-    display: flex;
-    align-items: center;
-    border: none;
-    background: none;
-    color: ${t.color.textMuted};
-    cursor: pointer;
-    padding: 2px;
-
-    &:hover {
-      color: ${t.color.text};
-    }
   }
 
   .queue-footer {

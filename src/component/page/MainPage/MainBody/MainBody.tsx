@@ -95,10 +95,10 @@ function MainBody(_props: MainBodyProps) {
               fill="#141a10"
             />
           </svg>
-          <div className="eyebrow">South Korea</div>
-          <h1>Discover the Korea beyond Seoul</h1>
+          <div className="eyebrow">Your travel companion</div>
+          <h1>Find, plan, and keep every journey</h1>
           <p className="hero-sub">
-            Stories and trips from the quiet corners of the country
+            Discover places, organize your trips, and share the stories — wherever you go
           </p>
           <div className="searchbar-wrap" ref={dropdownRef}>
             <div className="searchbar">
@@ -207,8 +207,8 @@ function MainBody(_props: MainBodyProps) {
               <BookOpen size={26} strokeWidth={1.5} />
               <h3>Read the journal</h3>
               <p>
-                Travel stories from people who actually went — the quiet corners
-                of Korea.
+                Travel stories from people who actually went — from quiet towns
+                to faraway cities.
               </p>
               <span className="go">Browse stories →</span>
             </a>
@@ -253,7 +253,7 @@ function MainBody(_props: MainBodyProps) {
                   doc.featuredInfo?.featuredImageUrl ||
                   doc.thumbnailImgUrl ||
                   "";
-                const region = doc.featuredInfo?.location || "Korea";
+                const region = doc.featuredInfo?.location || "Travel";
                 const title =
                   doc.featuredInfo?.featuredTitle || doc.title || "Untitled";
                 return (

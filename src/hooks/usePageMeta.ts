@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const DEFAULT_TITLE = "Nadeliv — Discover Korea Beyond Seoul";
+const DEFAULT_TITLE = "Nadeliv — Find, Plan, and Keep Every Journey";
 const DEFAULT_LANG = "en";
 
 export interface PageMetaAlternate {

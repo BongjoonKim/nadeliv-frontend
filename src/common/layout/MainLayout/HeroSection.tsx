@@ -98,7 +98,7 @@ function HeroSection() {
             maxW="600px"
             mx="auto"
           >
-            Your ultimate guide to exploring South Korea
+            Your companion for finding, planning, and keeping every trip
           </Text>
           
           {/* Search Bar */}

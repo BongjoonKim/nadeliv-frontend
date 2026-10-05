@@ -54,7 +54,7 @@ function BlogHero({latestFallback}: BlogHeroProps) {
           Nadeliv Journal
         </Text>
         <Text color="rgba(255,255,255,0.55)" fontSize="sm" mt={1}>
-          Stories from the quiet corners of Korea
+          Travel stories from wherever the road leads
         </Text>
       </Box>
 
