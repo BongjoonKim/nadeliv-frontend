@@ -35,9 +35,10 @@ export default function AccountDelete() {
       <DangerCard>
         <DangerTitle>Delete Account</DangerTitle>
         <DangerText>
-          Once you delete your account, there is no going back. All your data
-          including blog posts, comments, and bookmarks will be permanently
-          removed.
+          Once you delete your account, there is no going back. Your name,
+          email, birthday, profile photo, follows, and bookmarks are
+          permanently erased. Posts, comments, and travel albums you shared
+          stay on Nadeliv under &ldquo;Deleted user&rdquo;.
         </DangerText>
 
         <div style={{ marginTop: 18 }}>
