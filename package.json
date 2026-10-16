@@ -92,8 +92,8 @@
     "prosemirror-transform": "^1.10.3"
   },
   "scripts": {
-    "start": "export PORT=3002 && react-scripts start",
-    "build": "CI=false NODE_ENV=production react-scripts build",
+    "start": "cross-env PORT=3002 react-scripts start",
+    "build": "cross-env CI=false NODE_ENV=production react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -119,6 +119,7 @@
     "@types/lodash": "^4.17.20",
     "@types/socket.io-client": "^3.0.0",
     "@types/sockjs-client": "^1.5.4",
-    "autoprefixer": "^10.4.21"
+    "autoprefixer": "^10.4.21",
+    "cross-env": "^10.1.0"
   }
 }
