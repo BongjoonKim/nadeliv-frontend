@@ -52,7 +52,12 @@ export async function getDocument(props : FuncProps) {
 };
 
 export async function deleteDocument(props : FuncProps) {
-  return (await request.delete(`blog/ps/document?id=${props.params?.id}`)) as AxiosResponse<any>;
+  // 백엔드가 로그인 사용자(작성자 본인)만 삭제 허용 → Authorization 필수
+  return (await request.delete(`blog/ps/document?id=${props.params?.id}`, {
+    headers: {
+      Authorization: `Bearer ${props.accessToken}`
+    }
+  })) as AxiosResponse<any>;
 }
 
 // 휴지통에서 글 복구
