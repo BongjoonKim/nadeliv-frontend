@@ -14,6 +14,7 @@ import {
   TravelMediaType,
 } from "../../../../types/travel/travelTypes";
 import { MediaCellSize } from "../common/media/MediaGrid/MediaGrid";
+import { confirmDialog } from "../../../../common/elements/ConfirmDialog";
 
 const CELL_SIZE_STORAGE_KEY = "nadeliv.travelAlbum.cellSize";
 
@@ -213,9 +214,13 @@ export function useTravelAlbumPage() {
   const handleBatchDelete = useCallback(async () => {
     if (!travelId || selectedIds.size === 0) return;
     const ids = Array.from(selectedIds);
-    const ok = window.confirm(
-      `Delete ${ids.length} ${ids.length === 1 ? "item" : "items"}? This cannot be undone.`
-    );
+    const ok = await confirmDialog({
+      title: `Delete ${ids.length} ${ids.length === 1 ? "item" : "items"}?`,
+      description: "This cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger",
+    });
     if (!ok) return;
     setIsDeleting(true);
     try {

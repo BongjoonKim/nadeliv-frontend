@@ -35,6 +35,7 @@ import MemberItem from "./MemberItems";
 import InviteUserModal from "./InviteUserModal";
 import TravelInviteModal from "./TravelInviteModal";
 import {useCurrentUser} from "../../../../hooks/useCurrentUser";
+import { confirmDialog } from "../../../../common/elements/ConfirmDialog";
 
 const toaster = createToaster({
   placement: 'top-right',
@@ -117,7 +118,13 @@ export default function ChannelMemberList({
   };
   
   const handleRemoveMember = async (userId: string) => {
-    if (window.confirm('Do you really want to remove this member?')) {
+    const ok = await confirmDialog({
+      title: "Remove this member?",
+      confirmText: "Remove",
+      cancelText: "Cancel",
+      tone: "danger",
+    });
+    if (ok) {
       try {
         await removeMemberMutation.mutateAsync({ channelId, userId });
         toaster.create({

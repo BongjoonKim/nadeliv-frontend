@@ -23,9 +23,13 @@ export function Toaster() {
       <ChakraToaster toaster={toaster} insetInline={{ mdDown: "4" }}>
         {(toast : any) => (
           <Toast.Root
-            width={{ md: "auto" }}
             css={{
+              // 토스트 영역(group)의 폭이 0 이라 width:auto 는 min-content 로 풀려
+              // 짧은 제목이 한 글자씩 세로로 쌓였음 → max-content 로 고정
+              width: "max-content",
               minWidth: "0",
+              maxWidth: "min(380px, calc(100vw - 32px))",
+              wordBreak: "keep-all",
               background: "#14191a",
               color: "#e8eaeb",
               border: "1px solid rgba(127, 184, 154, 0.28)",
@@ -49,7 +53,8 @@ export function Toaster() {
                 }}
               />
             )}
-            <Stack gap="1" flex="1" maxWidth="100%">
+            {/* maxWidth:100% 는 max-content 부모 안에서 최소 폭으로 풀려 제목이 줄바꿈되므로 두지 않는다 */}
+            <Stack gap="1" flex="1" minWidth="0">
               {toast.title && (
                 <Toast.Title css={{ fontWeight: 500, fontSize: "13px", color: "#e8eaeb" }}>
                   {toast.title}

@@ -6,9 +6,10 @@
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { getOgMetadata } from "../../../../endpoints/common-endpoints";
+import type { OgMetadataDTO } from "../../../../types/common/OgMetadataDTO";
 
 export interface BookmarkCardAttrs {
   url: string;
@@ -27,10 +28,50 @@ declare module "@tiptap/core" {
   }
 }
 
+// 읽기 전용(뷰어)에서 메타데이터가 비어 있는 카드를 만나면 한 번만 가져와 보여준다.
+// 저장 시점에 OG 를 못 얻었던 글(예: 예전 지도 링크)이 재편집 없이도 채워지도록.
+// URL 별로 Promise 를 캐시해 같은 페이지의 중복 카드·리렌더에서 재요청하지 않는다.
+const lazyMetaCache = new Map<string, Promise<OgMetadataDTO | null>>();
+
+function fetchMetaOnce(url: string): Promise<OgMetadataDTO | null> {
+  let pending = lazyMetaCache.get(url);
+  if (!pending) {
+    pending = getOgMetadata(url)
+      .then((res) => res.data)
+      .catch(() => null);
+    lazyMetaCache.set(url, pending);
+  }
+  return pending;
+}
+
 const BookmarkCardComponent = (props: any) => {
   const { node, selected, editor, getPos, updateAttributes } = props;
-  const { url, title, description, image, favicon, siteName } = node.attrs as BookmarkCardAttrs;
+  const attrs = node.attrs as BookmarkCardAttrs;
+  const { url } = attrs;
   const [refreshing, setRefreshing] = useState(false);
+  const [lazyMeta, setLazyMeta] = useState<OgMetadataDTO | null>(null);
+
+  const isEditable = !!editor?.isEditable;
+  const needsLazyMeta = !isEditable && !!url && !attrs.title;
+
+  useEffect(() => {
+    if (!needsLazyMeta) return;
+    let cancelled = false;
+    fetchMetaOnce(url).then((meta) => {
+      if (!cancelled && meta) setLazyMeta(meta);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLazyMeta, url]);
+
+  // 제목이 비어 있던 카드는 저장 시점 메타가 불완전했던 것(예: 지도 링크의 범용 로고 이미지)이므로
+  // 새로 가져온 값을 우선하고, 저장된 attrs 는 폴백으로만 쓴다.
+  const title = lazyMeta?.title ?? attrs.title ?? null;
+  const description = lazyMeta?.description ?? attrs.description ?? null;
+  const image = lazyMeta?.image ?? attrs.image ?? null;
+  const favicon = lazyMeta?.favicon ?? attrs.favicon ?? null;
+  const siteName = lazyMeta?.siteName ?? attrs.siteName ?? null;
 
   const hasImage = !!image;
   const displayTitle = title || url;

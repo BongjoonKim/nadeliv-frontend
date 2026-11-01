@@ -10,6 +10,7 @@ import { PostHogProvider} from 'posthog-js/react'
 import {AuthProvider} from "./appConfig/AuthProvider";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {Toaster} from "./common/elements/toaster";
+import {ConfirmDialogHost} from "./common/elements/ConfirmDialog";
 import {initAnalytics} from "./utils/analytics";
 
 // PostHog 초기화 — 키가 없으면 no-op (utils/analytics.ts 참조)
@@ -36,6 +37,7 @@ function App() {
               <RoutersTree/>
             </StyledApp>
             <Toaster/>
+            <ConfirmDialogHost/>
           </ChakraProvider>
         </AuthProvider>
       </QueryClientProvider>

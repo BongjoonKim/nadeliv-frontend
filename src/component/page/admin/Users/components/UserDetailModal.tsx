@@ -32,6 +32,7 @@ import {
   useUpdateAdminUserStatus,
 } from "../../../../../hooks/useAdminUserQueries";
 import { AdminUserDocument, AdminUserTravel } from "../../../../../types/admin/adminUserTypes";
+import { confirmDialog } from "../../../../../common/elements/ConfirmDialog";
 
 const t = homeTokens;
 
@@ -187,13 +188,20 @@ function UserDetailModal({ userId, currentUserId, isOpen, onClose }: UserDetailM
     updateRoles({ userId, roles: isAdmin ? ["user", "admin"] : ["user"] });
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!user) return;
     const next = !user.enabled;
-    const message = next
-      ? `${user.userId} 계정을 복구할까요?`
-      : `${user.userId} 사용자를 탈퇴 처리할까요?\n(계정이 비활성화되며 로그인할 수 없게 됩니다)`;
-    if (window.confirm(message)) {
+    const ok = await confirmDialog(
+      next
+        ? { title: `${user.userId} 계정을 복구할까요?`, confirmText: "복구" }
+        : {
+            title: `${user.userId} 사용자를 탈퇴 처리할까요?`,
+            description: "계정이 비활성화되며 로그인할 수 없게 됩니다.",
+            confirmText: "탈퇴 처리",
+            tone: "danger",
+          }
+    );
+    if (ok) {
       updateStatus({ userId, enabled: next });
     }
   };

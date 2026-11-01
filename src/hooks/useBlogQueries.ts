@@ -1,5 +1,5 @@
 import useAuthEP from "../utils/useAuthEP";
-import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {DocumentViewResponse, IncreaseViewRequest, PopularPostDTO, ViewStatsDTO} from "../types/blog/blogTypes";
 import {
   getDocumentsByAuth,
@@ -8,6 +8,7 @@ import {
   getViews,
   getViewStats,
   increaseView,
+  restoreDocument,
 } from "../endpoints/blog-endpoints";
 import {ApiResponse} from "../types/messenger/messengerTypes";
 import {
@@ -93,6 +94,8 @@ function useMyBlogList(params: MyBlogListParams, enabled: boolean) {
     },
     enabled,
     staleTime: 1000 * 30,
+    // 페이지/탭 전환 중에는 이전 목록을 유지해 빈 화면 깜빡임을 막는다
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -159,6 +162,23 @@ export const useMyBlogStats = () => {
   };
 
   return { data, isLoading, isError };
+};
+
+// 휴지통 글 복구 (isDeleted=false 로 되돌림). 성공 시 대시보드 목록·카운트 갱신.
+export const useRestoreDocument = () => {
+  const authEP = useAuthEP();
+  const queryClient = useQueryClient();
+
+  return useMutation<unknown, Error, string>({
+    mutationFn: async (documentId: string) => {
+      const res = await authEP({ func: restoreDocument, params: { id: documentId } });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-blog"] });
+      queryClient.invalidateQueries({ queryKey: ["my-blog-stats"] });
+    },
+  });
 };
 
 /* -------------------------------------------------------------------------- */

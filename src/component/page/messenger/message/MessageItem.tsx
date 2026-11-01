@@ -50,6 +50,7 @@ import {
   useDeleteMessage,
   useUpdateMessage
 } from '../../../../hooks/useMessengerQueries';
+import { confirmDialog } from "../../../../common/elements/ConfirmDialog";
 
 interface MessageItemProps {
   message: Message;
@@ -96,8 +97,13 @@ const MessageItem: React.FC<MessageItemProps> = memo(({ message }) => {
     });
   };
   
-  const handleDelete = () => {
-    if (window.confirm('메시지를 삭제하시겠습니까?')) {
+  const handleDelete = async () => {
+    const ok = await confirmDialog({
+      title: "메시지를 삭제할까요?",
+      confirmText: "삭제",
+      tone: "danger",
+    });
+    if (ok) {
       deleteMessageMutation.mutate(message.id, {
         onSuccess: () => {
           toaster.create({
