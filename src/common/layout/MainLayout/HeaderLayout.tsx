@@ -13,7 +13,7 @@ const HEADER_TOKENS: Record<HeaderVariant, { bg: string; divider: string }> = {
 };
 
 // 라우트별 헤더 톤. MainLayout 의 DARK_ROUTE_PREFIXES 와 일치시켜야 함.
-const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin"];
+const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin", "/privacy"];
 function resolveHeaderVariant(pathname: string): HeaderVariant {
   // 홈("/")도 다크 세이지-그린 에디토리얼 테마
   if (pathname === "/" || pathname === "/home") return "dark";

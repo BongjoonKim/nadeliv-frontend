@@ -12,7 +12,7 @@ export interface MainLayoutProps {
 }
 
 // 라우트별 페이지 톤. HeaderLayout 의 resolveHeaderVariant 와 일치시켜야 함.
-const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin"];
+const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin", "/privacy"];
 
 // 채팅 류는 viewport 에 strictly 맞춰야 한다(내부 스크롤 구조).
 const VIEWPORT_LOCKED_PREFIXES = ["/travel/chat", "/chat"];

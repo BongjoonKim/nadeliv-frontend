@@ -3,7 +3,7 @@
 import React from "react";
 import { Box, HStack, Link, Text } from "@chakra-ui/react";
 import { Mail } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { homeTokens } from "../../../component/page/MainPage/MainBody/homeTokens";
 
 const t = homeTokens;
@@ -11,7 +11,7 @@ const t = homeTokens;
 export const CONTACT_EMAIL = "contact@nadeliv.com";
 
 // MainLayout / HeaderLayout 의 DARK_ROUTE_PREFIXES 와 동기화
-const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin"];
+const DARK_ROUTE_PREFIXES = ["/blog", "/travel", "/profile", "/user", "/admin", "/privacy"];
 
 type FooterVariant = "dark" | "light";
 
@@ -60,18 +60,28 @@ function FooterLayout() {
         <Text fontSize="12px" color={c.muted}>
           © {new Date().getFullYear()} nadeliv · Find, plan, and keep every journey
         </Text>
-        <Link
-          href={`mailto:${CONTACT_EMAIL}`}
-          fontSize="12.5px"
-          color={c.text}
-          display="inline-flex"
-          alignItems="center"
-          gap={1.5}
-          _hover={{ color: c.accent, textDecoration: "none" }}
-        >
-          <Mail size={13} />
-          Contact · {CONTACT_EMAIL}
-        </Link>
+        <HStack gap={4} flexWrap="wrap">
+          <Link
+            asChild
+            fontSize="12.5px"
+            color={c.text}
+            _hover={{ color: c.accent, textDecoration: "none" }}
+          >
+            <RouterLink to="/privacy">Privacy</RouterLink>
+          </Link>
+          <Link
+            href={`mailto:${CONTACT_EMAIL}`}
+            fontSize="12.5px"
+            color={c.text}
+            display="inline-flex"
+            alignItems="center"
+            gap={1.5}
+            _hover={{ color: c.accent, textDecoration: "none" }}
+          >
+            <Mail size={13} />
+            Contact · {CONTACT_EMAIL}
+          </Link>
+        </HStack>
       </HStack>
     </Box>
   );

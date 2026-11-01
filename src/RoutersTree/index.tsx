@@ -11,6 +11,7 @@ import TravelUploadTray from "../common/widget/TravelUploadTray";
 import HomePage from "../component/page/homePage/HomePage";
 import AdminRoutes from "./AdminRoutes";
 import ForbiddenPage from "../component/page/error/ForbiddenPage";
+import PrivacyPolicyPage from "../component/page/legal/PrivacyPolicyPage";
 import UserRoutes from "./UserRoutes";
 import ProfileRoutes from "./ProfileRoutes";
 import TravelRoutes from "./TravelRoutes";
@@ -38,6 +39,8 @@ export default function RoutersTree() {
           <Route path="/admin/*" element={<AdminRoutes />} />
           <Route path="/user/*" element={<UserRoutes />} />
           <Route path="/error/403" element={<ForbiddenPage />} />
+          {/* 개인정보 처리방침 — App Store 심사 Privacy Policy URL */}
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="*" element={
             <AlertRoot status="error">
               <AlertIndicator /> {/* AlertIcon → AlertIndicator */}
