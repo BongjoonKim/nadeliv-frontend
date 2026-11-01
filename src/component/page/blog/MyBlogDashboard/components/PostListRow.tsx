@@ -155,7 +155,7 @@ function PostListRow({ post, isLast }: PostListRowProps) {
 
       {/* 더보기 액션 메뉴 — 행 클릭 이벤트는 메뉴 내부에서 stopPropagation */}
       <Flex justify={"center"}>
-        <PostActionMenu postId={post.id} />
+        <PostActionMenu postId={post.id} isDeleted={post.isDeleted} />
       </Flex>
     </Grid>
   );

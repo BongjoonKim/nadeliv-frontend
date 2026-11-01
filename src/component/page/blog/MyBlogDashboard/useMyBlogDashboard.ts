@@ -29,6 +29,8 @@ export interface DashboardPost {
   views: number | null;
   likes: number | null;
   gradient: string;
+  /** 휴지통 글 여부 — 행 액션 메뉴가 Restore 로 바뀐다 */
+  isDeleted: boolean;
 }
 
 export interface DashboardStat {
@@ -172,9 +174,11 @@ export default function useMyBlogDashboard() {
         likes:
           typeof likeData?.likeCount === "number" ? likeData.likeCount : null,
         gradient: pickGradient(id),
+        // 백엔드 목록 응답에 isDeleted 가 빠져 있어도 휴지통 탭이면 복구 대상으로 본다
+        isDeleted: Boolean(doc.isDeleted) || activeTab === "trash",
       };
     });
-  }, [documents, viewQueries, likeQueries, folderNameById]);
+  }, [documents, viewQueries, likeQueries, folderNameById, activeTab]);
 
   const counts = useMemo(
     () => ({
