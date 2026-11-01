@@ -1,5 +1,5 @@
 import useAuthEP from "../utils/useAuthEP";
-import {useMutation, useQueries, useQuery, useQueryClient} from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {DocumentViewResponse, IncreaseViewRequest, PopularPostDTO, ViewStatsDTO} from "../types/blog/blogTypes";
 import {
   getDocumentsByAuth,
@@ -94,6 +94,8 @@ function useMyBlogList(params: MyBlogListParams, enabled: boolean) {
     },
     enabled,
     staleTime: 1000 * 30,
+    // 페이지/탭 전환 중에는 이전 목록을 유지해 빈 화면 깜빡임을 막는다
+    placeholderData: keepPreviousData,
   });
 }
 

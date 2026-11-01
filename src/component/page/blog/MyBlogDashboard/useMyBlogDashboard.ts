@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import moment from "moment";
@@ -32,6 +32,9 @@ export interface DashboardPost {
   /** 휴지통 글 여부 — 행 액션 메뉴가 Restore 로 바뀐다 */
   isDeleted: boolean;
 }
+
+/** 한 페이지에 보여줄 글 수 */
+export const DASHBOARD_PAGE_SIZE = 20;
 
 export interface DashboardStat {
   key: string;
@@ -78,9 +81,33 @@ export default function useMyBlogDashboard() {
   const initialTab: DashboardTabKey = isDashboardTab(tabFromUrl) ? tabFromUrl : "my-posts";
 
   const [activeTab, setActiveTabState] = useState<DashboardTabKey>(initialTab);
-  const [sortKey, setSortKey] = useState<DashboardSort>("latest");
+  const [sortKey, setSortKeyState] = useState<DashboardSort>("latest");
+
+  // 페이지는 URL `?page=`(1부터) 가 단일 소스 — 새로고침/뒤로가기에도 같은 페이지가 열린다.
+  // API 는 0부터 세므로 호출 시 -1 한다.
+  const pageFromUrl = Number.parseInt(searchParams.get("page") ?? "", 10);
+  const page = Number.isFinite(pageFromUrl) && pageFromUrl >= 1 ? pageFromUrl : 1;
+
+  const setPage = useCallback(
+    (next: number, replace = false) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next <= 1) {
+            params.delete("page");
+          } else {
+            params.set("page", String(next));
+          }
+          return params;
+        },
+        { replace },
+      );
+    },
+    [setSearchParams],
+  );
 
   // 탭 변경 시 URL `?tab=` 도 같이 업데이트 → 새로고침/공유 시 같은 탭이 열린다.
+  // 탭이 바뀌면 페이지는 1로 돌아간다.
   const setActiveTab = useCallback(
     (next: DashboardTabKey) => {
       setActiveTabState(next);
@@ -92,6 +119,7 @@ export default function useMyBlogDashboard() {
           } else {
             params.set("tab", next);
           }
+          params.delete("page");
           return params;
         },
         { replace: true },
@@ -100,15 +128,34 @@ export default function useMyBlogDashboard() {
     [setSearchParams],
   );
 
+  // 정렬이 바뀌어도 페이지는 1로
+  const setSortKey = useCallback(
+    (next: DashboardSort) => {
+      setSortKeyState(next);
+      setPage(1, true);
+    },
+    [setPage],
+  );
+
   const stats = useMyBlogStats();
   const folders = useMyFolders();
   // folderId 를 "all" 로 보내면 백엔드가 type 필터를 무시하고
   // 항상 발행글을 반환한다 (BlogServiceImpl.getDocuments). 그래서 비워둔다.
   const list = useMyBlogListForTab(activeTab, {
     sort: sortKey,
-    page: 0,
-    size: 20,
+    page: page - 1,
+    size: DASHBOARD_PAGE_SIZE,
   });
+
+  const totalCount = list.data?.totalDocsCnt ?? 0;
+  const totalPages = Math.max(1, list.data?.totalPagesCnt ?? 1);
+
+  // 마지막 페이지의 글을 모두 지우는 등으로 현재 페이지가 범위를 벗어나면 마지막 페이지로 당긴다.
+  useEffect(() => {
+    if (list.isSuccess && page > totalPages) {
+      setPage(totalPages, true);
+    }
+  }, [list.isSuccess, page, totalPages, setPage]);
 
   const folderNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -256,6 +303,12 @@ export default function useMyBlogDashboard() {
     setActiveTab,
     sortKey,
     setSortKey,
+    page,
+    setPage,
+    totalPages,
+    totalCount,
+    pageSize: DASHBOARD_PAGE_SIZE,
+    isFetching: list.isFetching,
     isLoading: list.isLoading || stats.isLoading,
     isError: list.isError || stats.isError,
   };
