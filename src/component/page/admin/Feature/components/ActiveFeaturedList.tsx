@@ -23,6 +23,7 @@ import {
 } from '../../../../../hooks/useFeaturedQueries';
 import FeaturedEditModal from './FeaturedEditModal';
 import { homeTokens } from '../../adminUi';
+import { confirmDialog } from "../../../../../common/elements/ConfirmDialog";
 
 const t = homeTokens;
 
@@ -83,8 +84,13 @@ const ActiveFeaturedList: React.FC = () => {
     );
   }
 
-  const handleRemove = (id: string) => {
-    if (window.confirm('정말로 Featured에서 제거하시겠습니까?')) {
+  const handleRemove = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "Featured에서 제거할까요?",
+      confirmText: "제거",
+      tone: "danger",
+    });
+    if (ok) {
       removeFeatured(id);
     }
   };

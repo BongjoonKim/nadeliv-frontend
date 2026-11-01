@@ -16,6 +16,8 @@ import {
   useToggleDocumentLike,
 } from "../../../../../hooks/useDocumentLikeQueries";
 import { deleteDocument } from "../../../../../endpoints/blog-endpoints";
+import { confirmDialog } from "../../../../../common/elements/ConfirmDialog";
+import { toaster } from "../../../../../common/elements/toaster";
 
 interface PostActionMenuProps {
   postId: string;
@@ -74,15 +76,22 @@ function PostActionMenu({ postId }: PostActionMenuProps) {
   };
 
   const handleDelete = async () => {
-    const ok = window.confirm("이 글을 휴지통으로 옮길까요?");
+    const ok = await confirmDialog({
+      title: "이 글을 휴지통으로 옮길까요?",
+      description: "휴지통에서 90일 안에 복구할 수 있어요.",
+      confirmText: "휴지통으로",
+      tone: "danger",
+    });
     if (!ok) return;
     try {
       await authEP({ func: deleteDocument, params: { id: postId } });
       // 목록과 카운트 모두 갱신 — invalidate 로 한 번에 처리
       queryClient.invalidateQueries({ queryKey: ["my-blog"] });
       queryClient.invalidateQueries({ queryKey: ["my-blog-stats"] });
+      toaster.create({ title: "휴지통으로 옮겼어요", type: "success", duration: 2500 });
     } catch (e) {
       console.error("delete failed", e);
+      toaster.create({ title: "삭제에 실패했어요", description: "잠시 후 다시 시도해주세요.", type: "error", duration: 3000 });
     }
   };
 

@@ -14,6 +14,8 @@ import useAuthEP from "../../../../../utils/useAuthEP";
 import {useCurrentUser} from "../../../../../hooks/useCurrentUser";
 import {useGetViews, useIncreaseView} from "../../../../../hooks/useBlogQueries";
 import {useDocumentLikeStatus, useToggleDocumentLike} from "../../../../../hooks/useDocumentLikeQueries";
+import {confirmDialog} from "../../../../elements/ConfirmDialog";
+import {toaster} from "../../../../elements/toaster";
 
 export default function useViewDocLayout(props : ViewDocLayoutProps) {
   const navigate = useNavigate();
@@ -45,7 +47,12 @@ export default function useViewDocLayout(props : ViewDocLayoutProps) {
   }, [props.id, i18n, navigate]);
   
   const handleDelete = useCallback(async () => {
-    const ok = window.confirm("이 글을 휴지통으로 옮길까요?");
+    const ok = await confirmDialog({
+      title: "이 글을 휴지통으로 옮길까요?",
+      description: "휴지통에서 90일 안에 복구할 수 있어요.",
+      confirmText: "휴지통으로",
+      tone: "danger",
+    });
     if (!ok) return;
     try {
       // Soft delete: 백엔드가 휴지통(isDeleted=true)으로 옮기고
@@ -58,6 +65,7 @@ export default function useViewDocLayout(props : ViewDocLayoutProps) {
       // 대시보드 목록/카운트 캐시 무효화 — 삭제한 글이 목록(draft)에 남아 보이는 문제 방지
       queryClient.invalidateQueries({ queryKey: ["my-blog"] });
       queryClient.invalidateQueries({ queryKey: ["my-blog-stats"] });
+      toaster.create({ title: "휴지통으로 옮겼어요", type: "success", duration: 2500 });
       navigate(-1)
     } catch (e) {
       setErrorMsg({

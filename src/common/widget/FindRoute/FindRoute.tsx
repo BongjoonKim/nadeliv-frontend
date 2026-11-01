@@ -40,6 +40,7 @@ import { UnifiedSearchResult } from "../maps/MapSearch/UnifiedMapSearch";
 import {useCurrentUser} from "../../../hooks/useCurrentUser";
 import NeedLogin from "../../../component/page/LoginPage/NeedLogin";
 import {useNavigate} from "react-router-dom";
+import {confirmDialog} from "../../elements/ConfirmDialog";
 
 export interface FindRouteProps {
   mapProvider?: MapProvider;
@@ -272,7 +273,7 @@ function FindRoute(props: FindRouteProps) {
           provider: mapProvider as 'kakao' | 'naver'
         });
       },
-      (error) => {
+      async (error) => {
         // 로딩 토스트 제거
         if (document.body.contains(loadingToast)) {
           document.body.removeChild(loadingToast);
@@ -297,10 +298,11 @@ function FindRoute(props: FindRouteProps) {
               '• Wi-Fi나 모바일 데이터가 연결되어 있는지';
             
             // 대체 위치 제안 (서울 시청)
-            const useDefaultLocation = window.confirm(
-              errorMessage + '\n\n' +
-              '대신 서울 시청을 현재 위치로 사용하시겠습니까?'
-            );
+            const useDefaultLocation = await confirmDialog({
+              title: '위치 정보를 사용할 수 없어요',
+              description: errorMessage + '\n\n대신 서울 시청을 현재 위치로 사용할까요?',
+              confirmText: '서울 시청 사용',
+            });
             
             if (useDefaultLocation) {
               const defaultLat = 37.5665;
